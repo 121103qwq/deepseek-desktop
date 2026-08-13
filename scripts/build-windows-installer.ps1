@@ -136,7 +136,8 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $payloadArchive -CompressionLevel Optimal
   $installScript = Join-Path $workRoot "install-$Kind.ps1"
   $mode = if ($IncludeDependencies) { 'offline' } else { 'mirror' }
-  (Get-Content -Raw (Join-Path $distributionRoot 'templates\install.ps1')).Replace("'__INSTALL_MODE__'", "'$mode'").Replace('__PRODUCT_VERSION__', $dshVersion) | Set-Content -LiteralPath $installScript -Encoding utf8
+  $installText = (Get-Content -Raw (Join-Path $distributionRoot 'templates\install.ps1')).Replace("'__INSTALL_MODE__'", "'$mode'").Replace('__PRODUCT_VERSION__', $dshVersion)
+  [IO.File]::WriteAllText($installScript, $installText, (New-Object Text.UTF8Encoding($true)))
   $sedPath = Join-Path $workRoot "installer-$Kind.sed"
   @"
 [Version]
@@ -156,7 +157,7 @@ DisplayLicense=
 FinishMessage=DeepSeek Desktop was installed for this Windows user.
 TargetName=$iexpressTarget
 FriendlyName=DeepSeek Desktop $dshVersion
-AppLaunched=cmd.exe /c powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-$Kind.ps1
+AppLaunched=cmd.exe /c powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File install-$Kind.ps1
 PostInstallCmd=<None>
 AdminQuietInstCmd=
 UserQuietInstCmd=
