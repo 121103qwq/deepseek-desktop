@@ -1,0 +1,5 @@
+distribution/windows/build/
+distribution/windows/dist/
+distribution/windows/*.log
+distribution/windows/*.log.err
+distribution/windows/presentation/

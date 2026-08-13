@@ -1,0 +1,32 @@
+- id: agent-default-model
+  config:
+    provider: groq
+    model: openai/gpt-oss-20b
+
+- id: llm-pi-ai
+  config:
+    providers:
+      groq:
+        displayName: Groq Free Plan
+        apiKeyEnv: GROQ_API_KEY
+        api: openai-completions
+        baseURL: https://api.groq.com/openai/v1
+        models:
+          - id: openai/gpt-oss-20b
+            name: GPT-OSS 20B
+            contextWindow: 131072
+            maxTokens: 65536
+          - id: openai/gpt-oss-120b
+            name: GPT-OSS 120B
+            contextWindow: 131072
+            maxTokens: 65536
+          - id: qwen/qwen3.6-27b
+            name: Qwen3.6 27B
+            contextWindow: 131072
+            maxTokens: 16384
+
+- id: llm-deepseek
+  disabled: true
+
+- id: web-search-deepseek
+  disabled: true
