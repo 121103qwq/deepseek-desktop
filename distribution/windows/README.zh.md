@@ -4,7 +4,7 @@
 
 `scripts/build-windows-installer.ps1` 为 DeepSeek Desktop 生成两个仅限当前用户的 Windows x64 安装程序；它是基于已发布 `@deepseek-ai/dsh` 包的社区打包版。
 
-两个安装程序都会内置 Node.js 22.19.0，在名为 `DeepSeek Desktop` 的 WebView 窗口中打开本地 Harness UI，并添加一个开始菜单快捷方式。它们不请求管理员权限，也不修改系统 `PATH`。安装向导可选择安装位置，并会在 Windows“已安装的应用”中注册卸载入口。
+两个安装程序都会内置 Node.js 22.19.0，在名为 `DeepSeek Desktop` 的 WebView 窗口中打开本地 Harness UI，并添加一个开始菜单快捷方式。它们不请求管理员权限，也不修改系统 `PATH`。安装向导可选择安装位置和是否创建桌面快捷方式，并会在 Windows“已安装的应用”中注册卸载入口。
 
 完整离线版内置已发布 Harness 的完整依赖闭包和固定版 WebView2 runtime。标准版会在安装时通过 `registry.npmmirror.com` 下载相同的固定 Harness 依赖闭包，并使用 Windows 已安装的 WebView2 runtime。应用数据保存在 `%LOCALAPPDATA%\DeepSeek Harness Data`；附带的卸载程序会移除程序文件和快捷方式，同时保留该数据目录。
 

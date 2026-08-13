@@ -10,6 +10,7 @@ if (!(Test-Path -LiteralPath $payload -PathType Leaf)) {
 }
 
 $installRoot = $defaultInstallRoot
+$createDesktopShortcut = $false
 if ([Environment]::UserInteractive) {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
@@ -19,7 +20,7 @@ if ([Environment]::UserInteractive) {
   $dialog.FormBorderStyle = 'FixedDialog'
   $dialog.MaximizeBox = $false
   $dialog.MinimizeBox = $false
-  $dialog.ClientSize = New-Object System.Drawing.Size(590, 205)
+  $dialog.ClientSize = New-Object System.Drawing.Size(590, 240)
 
   $title = New-Object System.Windows.Forms.Label
   $title.Text = '选择安装位置'
@@ -48,23 +49,30 @@ if ([Environment]::UserInteractive) {
     if ($picker.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $pathBox.Text = $picker.SelectedPath }
   })
 
+  $desktopShortcut = New-Object System.Windows.Forms.CheckBox
+  $desktopShortcut.Text = '创建桌面快捷方式'
+  $desktopShortcut.Checked = $true
+  $desktopShortcut.AutoSize = $true
+  $desktopShortcut.Location = New-Object System.Drawing.Point(26, 128)
+
   $install = New-Object System.Windows.Forms.Button
   $install.Text = '安装'
   $install.DialogResult = [System.Windows.Forms.DialogResult]::OK
-  $install.Location = New-Object System.Drawing.Point(376, 145)
+  $install.Location = New-Object System.Drawing.Point(376, 180)
   $install.Size = New-Object System.Drawing.Size(90, 30)
 
   $cancel = New-Object System.Windows.Forms.Button
   $cancel.Text = '取消'
   $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-  $cancel.Location = New-Object System.Drawing.Point(472, 145)
+  $cancel.Location = New-Object System.Drawing.Point(472, 180)
   $cancel.Size = New-Object System.Drawing.Size(90, 30)
 
-  $dialog.Controls.AddRange([System.Windows.Forms.Control[]]@($title, $detail, $pathBox, $browse, $install, $cancel))
+  $dialog.Controls.AddRange([System.Windows.Forms.Control[]]@($title, $detail, $pathBox, $browse, $desktopShortcut, $install, $cancel))
   $dialog.AcceptButton = $install
   $dialog.CancelButton = $cancel
   if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { exit 0 }
   $installRoot = $pathBox.Text.Trim()
+  $createDesktopShortcut = $desktopShortcut.Checked
   if ([string]::IsNullOrWhiteSpace($installRoot)) { throw 'Please choose an installation folder.' }
 }
 
@@ -106,6 +114,15 @@ $shortcut.WorkingDirectory = $installRoot
 $shortcut.Description = 'Open DeepSeek Desktop'
 $shortcut.Save()
 
+if ($createDesktopShortcut) {
+  $desktopShortcutPath = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)) 'DeepSeek Desktop.lnk'
+  $desktopLink = $shell.CreateShortcut($desktopShortcutPath)
+  $desktopLink.TargetPath = Join-Path $installRoot 'Launch DeepSeek Desktop.cmd'
+  $desktopLink.WorkingDirectory = $installRoot
+  $desktopLink.Description = 'Open DeepSeek Desktop'
+  $desktopLink.Save()
+}
+
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DeepSeek Desktop'
 New-Item -Path $uninstallKey -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name 'DisplayName' -Value 'DeepSeek Desktop' -PropertyType String -Force | Out-Null
@@ -114,5 +131,12 @@ New-ItemProperty -Path $uninstallKey -Name 'Publisher' -Value 'DeepSeek Desktop 
 New-ItemProperty -Path $uninstallKey -Name 'InstallLocation' -Value $installRoot -PropertyType String -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name 'DisplayIcon' -Value (Join-Path $installRoot 'DeepSeek Desktop.exe') -PropertyType String -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name 'UninstallString' -Value ('cmd.exe /d /s /c ""' + (Join-Path $installRoot 'Uninstall DeepSeek Harness.cmd') + '""') -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $uninstallKey -Name 'InstallDate' -Value (Get-Date -Format 'yyyyMMdd') -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $uninstallKey -Name 'URLInfoAbout' -Value 'https://github.com/121103qwq/deepseek-desktop' -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $uninstallKey -Name 'NoModify' -Value 1 -PropertyType DWord -Force | Out-Null
+New-ItemProperty -Path $uninstallKey -Name 'NoRepair' -Value 1 -PropertyType DWord -Force | Out-Null
+$estimatedBytes = (Get-ChildItem -LiteralPath $installRoot -File -Recurse | Measure-Object -Property Length -Sum).Sum
+$estimatedSizeKb = [int]([Math]::Ceiling($estimatedBytes / 1KB))
+New-ItemProperty -Path $uninstallKey -Name 'EstimatedSize' -Value $estimatedSizeKb -PropertyType DWord -Force | Out-Null
 
 & (Join-Path $installRoot 'Launch DeepSeek Desktop.cmd')
