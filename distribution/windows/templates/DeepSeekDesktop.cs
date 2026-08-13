@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Net;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
@@ -20,10 +21,10 @@ internal static class DeepSeekDesktop
 
 internal sealed class DesktopForm : Form
 {
-    private const int Port = 3080;
     private readonly WebView2 view = new WebView2 { Dock = DockStyle.Fill };
     private Process server;
     private System.Drawing.Icon applicationIcon;
+    private int port;
 
     private enum ModelMode
     {
@@ -51,7 +52,7 @@ internal sealed class DesktopForm : Form
                 }
                 ApplyModelMode(mode.Value);
                 StartServer();
-                WaitForServer();
+                WaitForServer(port);
                 CoreWebView2Environment webViewEnvironment = null;
                 string fixedRuntime = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WebView2");
                 if (File.Exists(Path.Combine(fixedRuntime, "msedgewebview2.exe")))
@@ -62,7 +63,7 @@ internal sealed class DesktopForm : Form
                 await view.EnsureCoreWebView2Async(webViewEnvironment);
                 view.CoreWebView2.Settings.AreDevToolsEnabled = false;
                 view.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-                view.CoreWebView2.Navigate("http://127.0.0.1:3080");
+                view.CoreWebView2.Navigate("http://127.0.0.1:" + port);
             }
             catch (Exception error)
             {
@@ -168,7 +169,8 @@ internal sealed class DesktopForm : Form
         string node = Path.Combine(root, "runtime", "node.exe");
         string bin = Path.Combine(root, "app", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js");
         if (!File.Exists(node) || !File.Exists(bin)) throw new InvalidOperationException("DeepSeek Desktop is incomplete. Reinstall the application.");
-        var start = new ProcessStartInfo(node, "\"" + bin + "\" web --port " + Port)
+        port = FindAvailablePort();
+        var start = new ProcessStartInfo(node, "\"" + bin + "\" web --port " + port)
         {
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -180,7 +182,21 @@ internal sealed class DesktopForm : Form
         if (server == null) throw new InvalidOperationException("DeepSeek Desktop could not start the local Harness service.");
     }
 
-    private static void WaitForServer()
+    private static int FindAvailablePort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        try
+        {
+            listener.Start();
+            return ((IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
+
+    private static void WaitForServer(int port)
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);
         while (DateTime.UtcNow < deadline)
@@ -189,7 +205,7 @@ internal sealed class DesktopForm : Form
             {
                 using (var client = new TcpClient())
                 {
-                    client.Connect("127.0.0.1", Port);
+                    client.Connect("127.0.0.1", port);
                     return;
                 }
             }
