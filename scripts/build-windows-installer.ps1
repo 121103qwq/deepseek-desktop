@@ -109,7 +109,8 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   $appRoot = Join-Path $payloadRoot 'app'
   $runtimeRoot = Join-Path $payloadRoot 'runtime'
   $payloadArchive = Join-Path $workRoot "payload-$Kind.zip"
-  $installerName = if ($Kind -eq 'offline') { "DeepSeek-Desktop-$dshVersion-Windows-x64-Offline-Setup.exe" } else { "DeepSeek-Desktop-$dshVersion-Windows-x64-Setup-默认.exe" }
+  $defaultSuffix = [string][char]0x9ed8 + [char]0x8ba4
+  $installerName = if ($Kind -eq 'offline') { "DeepSeek-Desktop-$dshVersion-Windows-x64-Offline-Setup.exe" } else { "DeepSeek-Desktop-$dshVersion-Windows-x64-Setup-$defaultSuffix.exe" }
   $installerPath = Join-Path $outputPath $installerName
   $iexpressTarget = if ($Kind -eq 'offline') { $installerPath } else { Join-Path $outputPath "DeepSeek-Desktop-$dshVersion-Windows-x64-Setup-default.tmp.exe" }
   if (Test-Path -LiteralPath $installerPath) { throw "Refusing to overwrite an existing installer: $installerPath" }
