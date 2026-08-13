@@ -1,6 +1,12 @@
 $ErrorActionPreference = 'Stop'
 $InstallMode = '__INSTALL_MODE__'
 
+trap {
+  Add-Type -AssemblyName System.Windows.Forms
+  [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'DeepSeek Desktop 安装失败', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+  exit 1
+}
+
 $defaultInstallRoot = Join-Path $env:LOCALAPPDATA 'Programs\DeepSeek Desktop'
 $menuRoot = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\DeepSeek Desktop'
 $payload = Join-Path $PSScriptRoot ("payload-$InstallMode.zip")
@@ -98,11 +104,16 @@ Expand-Archive -LiteralPath $payload -DestinationPath $installRoot -Force
 $homeRoot = Join-Path $env:LOCALAPPDATA 'DeepSeek Harness Data'
 $profileRoot = Join-Path $homeRoot 'profiles\web'
 New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
-if (!(Test-Path -LiteralPath (Join-Path $profileRoot 'cordis.patch.yml'))) {
-  Copy-Item -LiteralPath (Join-Path $installRoot 'defaults\cordis.patch.yml') -Destination (Join-Path $profileRoot 'cordis.patch.yml')
-}
 $patchPath = Join-Path $profileRoot 'cordis.patch.yml'
-$patchText = Get-Content -LiteralPath $patchPath -Raw
+if (Test-Path -LiteralPath $patchPath) {
+  $existingPatch = [IO.File]::ReadAllText($patchPath, [Text.Encoding]::UTF8)
+  if ($existingPatch.Contains('provider: groq') -and $existingPatch.Contains('baseURL: https://api.groq.com/openai/v1')) {
+    Copy-Item -LiteralPath (Join-Path $installRoot 'defaults\cordis.patch.yml') -Destination $patchPath -Force
+  }
+} else {
+  Copy-Item -LiteralPath (Join-Path $installRoot 'defaults\cordis.patch.yml') -Destination $patchPath
+}
+$patchText = [IO.File]::ReadAllText($patchPath, [Text.Encoding]::UTF8)
 $freeDefault = "provider: kilo`r`n    model: kilo-auto/free"
 $deepSeekDefault = "provider: deepseek-official`r`n    model: deepseek-v4-flash"
 $disabledDeepSeek = "- id: llm-deepseek`r`n  disabled: true"
@@ -116,12 +127,8 @@ if ($selectedModelMode -eq 'deepseek') {
   if (!$patchText.Contains($disabledDeepSeek) -and !$patchText.Contains($disabledDeepSeek.Replace("`r`n", "`n"))) { $patchText = $patchText.Replace($enabledDeepSeek, $disabledDeepSeek) }
 }
 Set-Content -LiteralPath $patchPath -Value $patchText -Encoding utf8
-if (!(Test-Path -LiteralPath (Join-Path $homeRoot 'settings.yaml'))) {
-@"
-ui-onboarding:
-  welcomeNoticeVersion: 2026-08-13.1
-locale:
-  preference: zh
+$settingsPath = Join-Path $homeRoot 'settings.yaml'
+$kiloProviderSettings = @"
 llm-pi-ai:
   providers:
     kilo:
@@ -139,15 +146,31 @@ llm-pi-ai:
           name: StepFun 3.7 Flash（Kilo 免费）
           contextWindow: 131072
           maxTokens: 8192
+"@
+if (!(Test-Path -LiteralPath $settingsPath)) {
+@"
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+locale:
+  preference: zh
+$kiloProviderSettings
 "@ | Set-Content -LiteralPath (Join-Path $homeRoot 'settings.yaml') -Encoding utf8
+} else {
+  $settingsText = [IO.File]::ReadAllText($settingsPath, [Text.Encoding]::UTF8)
+  if (!$settingsText.Contains("locale:`r`n") -and !$settingsText.Contains("locale:`n")) {
+    $settingsText = $settingsText.TrimEnd() + "`r`nlocale:`r`n  preference: zh`r`n"
+  }
+  if (!$settingsText.Contains("llm-pi-ai:`r`n") -and !$settingsText.Contains("llm-pi-ai:`n")) {
+    $settingsText = $settingsText.TrimEnd() + "`r`n" + $kiloProviderSettings + "`r`n"
+  }
+  [IO.File]::WriteAllText($settingsPath, $settingsText, (New-Object Text.UTF8Encoding($true)))
 }
 
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut((Join-Path $menuRoot 'DeepSeek Desktop.lnk'))
 $shortcut.TargetPath = Join-Path $installRoot 'Launch DeepSeek Desktop.cmd'
 $shortcut.WorkingDirectory = $installRoot
-$shortcut.IconLocation = (Join-Path $installRoot 'DeepSeek-Black-Logo.ico')
-$shortcut.IconIndex = 0
+$shortcut.IconLocation = ((Join-Path $installRoot 'DeepSeek-Black-Logo.ico') + ',0')
 $shortcut.Description = 'Open DeepSeek Desktop'
 $shortcut.Save()
 
@@ -156,8 +179,7 @@ if ($createDesktopShortcut) {
   $desktopLink = $shell.CreateShortcut($desktopShortcutPath)
   $desktopLink.TargetPath = Join-Path $installRoot 'Launch DeepSeek Desktop.cmd'
   $desktopLink.WorkingDirectory = $installRoot
-  $desktopLink.IconLocation = (Join-Path $installRoot 'DeepSeek-Black-Logo.ico')
-  $desktopLink.IconIndex = 0
+  $desktopLink.IconLocation = ((Join-Path $installRoot 'DeepSeek-Black-Logo.ico') + ',0')
   $desktopLink.Description = 'Open DeepSeek Desktop'
   $desktopLink.Save()
 }
@@ -178,4 +200,4 @@ $estimatedBytes = (Get-ChildItem -LiteralPath $installRoot -File -Recurse | Meas
 $estimatedSizeKb = [int]([Math]::Ceiling($estimatedBytes / 1KB))
 New-ItemProperty -Path $uninstallKey -Name 'EstimatedSize' -Value $estimatedSizeKb -PropertyType DWord -Force | Out-Null
 
-& (Join-Path $installRoot 'Launch DeepSeek Desktop.cmd')
+Start-Process -FilePath (Join-Path $installRoot 'DeepSeek Desktop.exe') -WorkingDirectory $installRoot

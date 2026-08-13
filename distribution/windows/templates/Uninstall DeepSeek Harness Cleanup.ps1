@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Start-Sleep -Seconds 1
-$normalizedRoot = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\\') + '\\'
+$normalizedRoot = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\') + '\'
 Get-CimInstance Win32_Process | ForEach-Object {
   if ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($normalizedRoot, [StringComparison]::OrdinalIgnoreCase)) {
     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
@@ -20,3 +20,4 @@ for ($attempt = 0; $attempt -lt 10; $attempt++) {
     Start-Sleep -Seconds 1
   }
 }
+throw "DeepSeek Desktop program files could not be removed: $InstallRoot"

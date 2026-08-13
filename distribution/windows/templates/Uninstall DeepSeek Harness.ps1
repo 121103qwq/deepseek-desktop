@@ -10,4 +10,6 @@ Remove-Item -LiteralPath $menuRoot -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $desktopShortcut -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $uninstallKey -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item -LiteralPath (Join-Path $installRoot 'Uninstall DeepSeek Harness Cleanup.ps1') -Destination $cleanupScript
-Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $cleanupScript, '-InstallRoot', $installRoot) -WindowStyle Hidden
+$quotedCleanupScript = '"' + $cleanupScript + '"'
+$quotedInstallRoot = '"' + $installRoot + '"'
+Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $quotedCleanupScript, '-InstallRoot', $quotedInstallRoot) -WindowStyle Hidden

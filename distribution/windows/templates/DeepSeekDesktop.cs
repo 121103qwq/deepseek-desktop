@@ -89,7 +89,7 @@ internal sealed class DesktopForm : Form
         using (var progress = new DownloadProgressForm())
         {
             progress.Show(this);
-            var start = new ProcessStartInfo(npm, "install --omit=dev --no-audit --no-fund --package-lock=false --registry=https://registry.npmmirror.com --fetch-retries=3 --fetch-timeout=120000")
+            var start = new ProcessStartInfo("cmd.exe", "/d /s /c \"\"" + npm + "\" install --omit=dev --no-audit --no-fund --package-lock=false --registry=https://registry.npmmirror.com --fetch-retries=3 --fetch-timeout=120000\"")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
