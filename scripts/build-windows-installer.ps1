@@ -157,7 +157,7 @@ SourceFiles0=$workRoot\
 [SourceFiles0]
 %FILE0%=
 %FILE1%=
-  "@ | Set-Content -LiteralPath $sedPath -Encoding ascii
+"@ | Set-Content -LiteralPath $sedPath -Encoding ascii
   Write-Host "Creating $Kind setup executable..."
   $iexpress = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\iexpress.exe') -ArgumentList @('/N', '/Q', $sedPath) -PassThru -Wait -WindowStyle Hidden
   if ($iexpress.ExitCode -ne 0) { throw "IExpress failed with exit code $($iexpress.ExitCode)" }
