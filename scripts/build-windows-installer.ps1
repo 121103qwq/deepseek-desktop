@@ -101,7 +101,9 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   $payloadArchive = Join-Path $workRoot "payload-$Kind.zip"
   $installerName = if ($Kind -eq 'offline') { "DeepSeek-Desktop-$dshVersion-Windows-x64-Offline-Setup.exe" } else { "DeepSeek-Desktop-$dshVersion-Windows-x64-Setup-默认.exe" }
   $installerPath = Join-Path $outputPath $installerName
+  $iexpressTarget = if ($Kind -eq 'offline') { $installerPath } else { Join-Path $outputPath "DeepSeek-Desktop-$dshVersion-Windows-x64-Setup-default.tmp.exe" }
   if (Test-Path -LiteralPath $installerPath) { throw "Refusing to overwrite an existing installer: $installerPath" }
+  if (Test-Path -LiteralPath $iexpressTarget) { throw "Refusing to overwrite an existing IExpress target: $iexpressTarget" }
   Copy-CommonPayload $payloadRoot $IncludeDependencies
   if ($IncludeDependencies) {
     Write-Host "Installing complete @deepseek-ai/dsh@$dshVersion dependency closure..."
@@ -142,7 +144,7 @@ RebootMode=N
 InstallPrompt=
 DisplayLicense=
 FinishMessage=DeepSeek Desktop was installed for this Windows user.
-TargetName=$installerPath
+TargetName=$iexpressTarget
 FriendlyName=DeepSeek Desktop $dshVersion
 AppLaunched=cmd.exe /c powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-$Kind.ps1
 PostInstallCmd=<None>
@@ -161,6 +163,7 @@ SourceFiles0=$workRoot\
   Write-Host "Creating $Kind setup executable..."
   $iexpress = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\iexpress.exe') -ArgumentList @('/N', '/Q', $sedPath) -PassThru -Wait -WindowStyle Hidden
   if ($iexpress.ExitCode -ne 0) { throw "IExpress failed with exit code $($iexpress.ExitCode)" }
+  if ($iexpressTarget -ne $installerPath) { Move-Item -LiteralPath $iexpressTarget -Destination $installerPath }
   if (!(Test-Path -LiteralPath $installerPath -PathType Leaf)) { throw 'IExpress did not create the setup executable.' }
   Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
 }
