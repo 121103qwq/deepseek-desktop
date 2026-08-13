@@ -12,11 +12,10 @@ if (!(Test-Path -LiteralPath $payload -PathType Leaf)) {
 $installRoot = $defaultInstallRoot
 $createDesktopShortcut = $false
 $selectedModelMode = 'free'
-if ([Environment]::UserInteractive) {
-  Add-Type -AssemblyName System.Windows.Forms
-  Add-Type -AssemblyName System.Drawing
-  $dialog = New-Object System.Windows.Forms.Form
-  $dialog.Text = '安装 DeepSeek Desktop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$dialog = New-Object System.Windows.Forms.Form
+$dialog.Text = '安装 DeepSeek Desktop'
   $dialog.StartPosition = 'CenterScreen'
   $dialog.FormBorderStyle = 'FixedDialog'
   $dialog.MaximizeBox = $false
@@ -91,8 +90,7 @@ if ([Environment]::UserInteractive) {
   $installRoot = $pathBox.Text.Trim()
   $createDesktopShortcut = $desktopShortcut.Checked
   if ($deepSeekApi.Checked) { $selectedModelMode = 'deepseek' }
-  if ([string]::IsNullOrWhiteSpace($installRoot)) { throw 'Please choose an installation folder.' }
-}
+if ([string]::IsNullOrWhiteSpace($installRoot)) { throw 'Please choose an installation folder.' }
 
 New-Item -ItemType Directory -Force -Path $installRoot, $menuRoot | Out-Null
 Expand-Archive -LiteralPath $payload -DestinationPath $installRoot -Force
