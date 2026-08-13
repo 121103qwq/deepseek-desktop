@@ -11,10 +11,13 @@ if (!(Test-Path -LiteralPath $payload -PathType Leaf)) {
 
 New-Item -ItemType Directory -Force -Path $installRoot, $menuRoot | Out-Null
 Expand-Archive -LiteralPath $payload -DestinationPath $installRoot -Force
+$appRoot = Join-Path $installRoot 'app'
+if (!(Test-Path -LiteralPath $appRoot -PathType Container)) {
+  throw "Installer application payload is missing: $appRoot"
+}
 
 if ($InstallMode -eq 'mirror') {
   $runtimeRoot = Join-Path $installRoot 'runtime'
-  $appRoot = Join-Path $installRoot 'app'
   $savedPath = $env:PATH
   try {
     $env:PATH = "$runtimeRoot;$savedPath"
@@ -31,7 +34,7 @@ $homeRoot = Join-Path $env:LOCALAPPDATA 'DeepSeek Harness Data'
 $profileRoot = Join-Path $homeRoot 'profiles\web'
 New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
 if (!(Test-Path -LiteralPath (Join-Path $profileRoot 'cordis.patch.yml'))) {
-  Copy-Item -LiteralPath (Join-Path $installRoot 'defaults\cordis.patch.yml') -Destination (Join-Path $profileRoot 'cordis.patch.yml')
+  Copy-Item -LiteralPath (Join-Path $appRoot 'defaults\cordis.patch.yml') -Destination (Join-Path $profileRoot 'cordis.patch.yml')
 }
 if (!(Test-Path -LiteralPath (Join-Path $homeRoot 'settings.yaml'))) {
 @"
@@ -42,9 +45,9 @@ ui-onboarding:
 
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut((Join-Path $menuRoot 'DeepSeek Desktop.lnk'))
-$shortcut.TargetPath = Join-Path $installRoot 'Launch DeepSeek Desktop.cmd'
-$shortcut.WorkingDirectory = $installRoot
+$shortcut.TargetPath = Join-Path $appRoot 'Launch DeepSeek Desktop.cmd'
+$shortcut.WorkingDirectory = $appRoot
 $shortcut.Description = 'Open DeepSeek Desktop'
 $shortcut.Save()
 
-& (Join-Path $installRoot 'Launch DeepSeek Desktop.cmd')
+& (Join-Path $appRoot 'Launch DeepSeek Desktop.cmd')
