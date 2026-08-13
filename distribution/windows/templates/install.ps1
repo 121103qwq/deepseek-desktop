@@ -11,6 +11,7 @@ if (!(Test-Path -LiteralPath $payload -PathType Leaf)) {
 
 $installRoot = $defaultInstallRoot
 $createDesktopShortcut = $false
+$selectedModelMode = 'free'
 if ([Environment]::UserInteractive) {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
@@ -20,7 +21,7 @@ if ([Environment]::UserInteractive) {
   $dialog.FormBorderStyle = 'FixedDialog'
   $dialog.MaximizeBox = $false
   $dialog.MinimizeBox = $false
-  $dialog.ClientSize = New-Object System.Drawing.Size(590, 240)
+  $dialog.ClientSize = New-Object System.Drawing.Size(590, 315)
 
   $title = New-Object System.Windows.Forms.Label
   $title.Text = '选择安装位置'
@@ -49,50 +50,52 @@ if ([Environment]::UserInteractive) {
     if ($picker.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $pathBox.Text = $picker.SelectedPath }
   })
 
+  $modelDetail = New-Object System.Windows.Forms.Label
+  $modelDetail.Text = '首次模型路线（仅在安装时选择；以后可在应用内修改）：'
+  $modelDetail.AutoSize = $true
+  $modelDetail.Location = New-Object System.Drawing.Point(26, 128)
+
+  $freeModel = New-Object System.Windows.Forms.RadioButton
+  $freeModel.Text = '免费模型（Kilo，免登录）'
+  $freeModel.Checked = $true
+  $freeModel.AutoSize = $true
+  $freeModel.Location = New-Object System.Drawing.Point(26, 154)
+
+  $deepSeekApi = New-Object System.Windows.Forms.RadioButton
+  $deepSeekApi.Text = 'DeepSeek API（稍后在应用内填写 Key）'
+  $deepSeekApi.AutoSize = $true
+  $deepSeekApi.Location = New-Object System.Drawing.Point(26, 180)
+
   $desktopShortcut = New-Object System.Windows.Forms.CheckBox
   $desktopShortcut.Text = '创建桌面快捷方式'
   $desktopShortcut.Checked = $true
   $desktopShortcut.AutoSize = $true
-  $desktopShortcut.Location = New-Object System.Drawing.Point(26, 128)
+  $desktopShortcut.Location = New-Object System.Drawing.Point(26, 212)
 
   $install = New-Object System.Windows.Forms.Button
   $install.Text = '安装'
   $install.DialogResult = [System.Windows.Forms.DialogResult]::OK
-  $install.Location = New-Object System.Drawing.Point(376, 180)
+  $install.Location = New-Object System.Drawing.Point(376, 254)
   $install.Size = New-Object System.Drawing.Size(90, 30)
 
   $cancel = New-Object System.Windows.Forms.Button
   $cancel.Text = '取消'
   $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-  $cancel.Location = New-Object System.Drawing.Point(472, 180)
+  $cancel.Location = New-Object System.Drawing.Point(472, 254)
   $cancel.Size = New-Object System.Drawing.Size(90, 30)
 
-  $dialog.Controls.AddRange([System.Windows.Forms.Control[]]@($title, $detail, $pathBox, $browse, $desktopShortcut, $install, $cancel))
+  $dialog.Controls.AddRange([System.Windows.Forms.Control[]]@($title, $detail, $pathBox, $browse, $modelDetail, $freeModel, $deepSeekApi, $desktopShortcut, $install, $cancel))
   $dialog.AcceptButton = $install
   $dialog.CancelButton = $cancel
   if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { exit 0 }
   $installRoot = $pathBox.Text.Trim()
   $createDesktopShortcut = $desktopShortcut.Checked
+  if ($deepSeekApi.Checked) { $selectedModelMode = 'deepseek' }
   if ([string]::IsNullOrWhiteSpace($installRoot)) { throw 'Please choose an installation folder.' }
 }
 
 New-Item -ItemType Directory -Force -Path $installRoot, $menuRoot | Out-Null
 Expand-Archive -LiteralPath $payload -DestinationPath $installRoot -Force
-
-if ($InstallMode -eq 'mirror') {
-  $runtimeRoot = Join-Path $installRoot 'runtime'
-  $appRoot = Join-Path $installRoot 'app'
-  $savedPath = $env:PATH
-  try {
-    $env:PATH = "$runtimeRoot;$savedPath"
-    Push-Location $appRoot
-    & (Join-Path $runtimeRoot 'npm.cmd') install '--omit=dev' '--no-audit' '--no-fund' '--package-lock=false' '--registry=https://registry.npmmirror.com' '--fetch-retries=3' '--fetch-timeout=120000'
-    if ($LASTEXITCODE -ne 0) { throw "DeepSeek Desktop download failed with exit code $LASTEXITCODE" }
-  } finally {
-    Pop-Location
-    $env:PATH = $savedPath
-  }
-}
 
 $homeRoot = Join-Path $env:LOCALAPPDATA 'DeepSeek Harness Data'
 $profileRoot = Join-Path $homeRoot 'profiles\web'
@@ -100,6 +103,21 @@ New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
 if (!(Test-Path -LiteralPath (Join-Path $profileRoot 'cordis.patch.yml'))) {
   Copy-Item -LiteralPath (Join-Path $installRoot 'defaults\cordis.patch.yml') -Destination (Join-Path $profileRoot 'cordis.patch.yml')
 }
+$patchPath = Join-Path $profileRoot 'cordis.patch.yml'
+$patchText = Get-Content -LiteralPath $patchPath -Raw
+$freeDefault = "provider: kilo`r`n    model: kilo-auto/free"
+$deepSeekDefault = "provider: deepseek-official`r`n    model: deepseek-v4-flash"
+$disabledDeepSeek = "- id: llm-deepseek`r`n  disabled: true"
+$enabledDeepSeek = '- id: llm-deepseek'
+if ($selectedModelMode -eq 'deepseek') {
+  $patchText = $patchText.Replace($freeDefault, $deepSeekDefault).Replace($freeDefault.Replace("`r`n", "`n"), $deepSeekDefault.Replace("`r`n", "`n"))
+  $patchText = $patchText.Replace($disabledDeepSeek, $enabledDeepSeek).Replace($disabledDeepSeek.Replace("`r`n", "`n"), $enabledDeepSeek)
+} else {
+  $patchText = $patchText.Replace($deepSeekDefault, $freeDefault).Replace($deepSeekDefault.Replace("`r`n", "`n"), $freeDefault.Replace("`r`n", "`n"))
+  $patchText = $patchText.Replace($enabledDeepSeek + "`r`n  disabled: true", $disabledDeepSeek).Replace($enabledDeepSeek + "`n  disabled: true", $disabledDeepSeek)
+  if (!$patchText.Contains($disabledDeepSeek) -and !$patchText.Contains($disabledDeepSeek.Replace("`r`n", "`n"))) { $patchText = $patchText.Replace($enabledDeepSeek, $disabledDeepSeek) }
+}
+Set-Content -LiteralPath $patchPath -Value $patchText -Encoding utf8
 if (!(Test-Path -LiteralPath (Join-Path $homeRoot 'settings.yaml'))) {
 @"
 ui-onboarding:

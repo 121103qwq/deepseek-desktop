@@ -4,8 +4,9 @@ Build DeepSeek Desktop setup executables for Windows x64.
 
 .DESCRIPTION
 Creates an offline setup with the complete published Harness dependency closure
-and a mirror setup that downloads that closure from the China npm mirror during
-installation. Both use a bundled Node runtime and an embedded WebView window.
+and a smaller standard setup that downloads that closure from the China npm
+mirror on its first launch. Both use a bundled Node runtime and an embedded
+WebView window.
 ##>
 [CmdletBinding()]
 param(
@@ -26,6 +27,9 @@ $webViewPackageUrl = "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView
 $fixedWebViewRuntimeVersion = '150.0.4078.99'
 $fixedWebViewRuntimeUrl = "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/$fixedWebViewRuntimeVersion/webview2.runtime.x64.$fixedWebViewRuntimeVersion.nupkg"
 $fixedWebViewRuntimeSha256 = 'c0907ddb8f2fff6f91ccb7fe972284dc47f07e34684d0aedefda3d0f6edf75d8'
+$rceditVersion = '5.0.2'
+$rceditUrl = "https://registry.npmmirror.com/rcedit/-/rcedit-$rceditVersion.tgz"
+$rceditSha256 = '39e3949ea1f187005043fc13acc31eb23887119ed1e4ff8cdb2d202c4a31ed73'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $distributionRoot = Join-Path $repoRoot 'distribution\windows'
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) { $OutputDirectory = Join-Path $distributionRoot 'dist' }
@@ -36,6 +40,8 @@ $webViewPackage = Join-Path $workRoot 'webview2.nupkg'
 $webViewExtract = Join-Path $workRoot 'webview2'
 $fixedWebViewRuntimePackage = Join-Path $workRoot 'webview2-runtime.nupkg'
 $fixedWebViewRuntimeExtract = Join-Path $workRoot 'webview2-runtime'
+$rceditArchive = Join-Path $workRoot 'rcedit.tgz'
+$rceditExtract = Join-Path $workRoot 'rcedit'
 
 function Assert-ExternalSuccess([string]$Subject) {
   if ($LASTEXITCODE -ne 0) { throw "$Subject failed with exit code $LASTEXITCODE" }
@@ -167,6 +173,8 @@ SourceFiles0=$workRoot\
   if ($iexpress.ExitCode -ne 0) { throw "IExpress failed with exit code $($iexpress.ExitCode)" }
   if ($iexpressTarget -ne $installerPath) { Move-Item -LiteralPath $iexpressTarget -Destination $installerPath }
   if (!(Test-Path -LiteralPath $installerPath -PathType Leaf)) { throw 'IExpress did not create the setup executable.' }
+  & (Join-Path $rceditExtract 'package\bin\rcedit-x64.exe') $installerPath --set-icon (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.ico')
+  Assert-ExternalSuccess "IExpress $Kind icon update"
   Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
 }
 
@@ -196,6 +204,16 @@ $actualFixedRuntimeHash = Get-Sha256 $fixedWebViewRuntimePackage
 if ($actualFixedRuntimeHash -ne $fixedWebViewRuntimeSha256) { throw "Fixed WebView2 runtime checksum mismatch: expected $fixedWebViewRuntimeSha256, got $actualFixedRuntimeHash" }
 & 'D:\DevTools\Scoop\shims\7z.exe' x $fixedWebViewRuntimePackage "-o$fixedWebViewRuntimeExtract" -y | Out-Null
 Assert-ExternalSuccess 'Fixed WebView2 runtime extraction'
+
+Write-Host "Downloading installer icon editor $rceditVersion..."
+& curl.exe --fail --location --silent --show-error --output $rceditArchive $rceditUrl
+Assert-ExternalSuccess 'Installer icon editor download'
+$actualRceditHash = Get-Sha256 $rceditArchive
+if ($actualRceditHash -ne $rceditSha256) { throw "Installer icon editor checksum mismatch: expected $rceditSha256, got $actualRceditHash" }
+New-Item -ItemType Directory -Force -Path $rceditExtract | Out-Null
+& tar.exe -xzf $rceditArchive -C $rceditExtract
+Assert-ExternalSuccess 'Installer icon editor extraction'
+if (!(Test-Path -LiteralPath (Join-Path $rceditExtract 'package\bin\rcedit-x64.exe') -PathType Leaf)) { throw 'The installer icon editor is incomplete.' }
 
 New-Setup 'offline' $true
 New-Setup 'mirror' $false

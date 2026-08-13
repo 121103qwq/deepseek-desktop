@@ -26,12 +26,6 @@ internal sealed class DesktopForm : Form
     private System.Drawing.Icon applicationIcon;
     private int port;
 
-    private enum ModelMode
-    {
-        Free,
-        DeepSeekApi,
-    }
-
     internal DesktopForm()
     {
         Text = "DeepSeek Desktop";
@@ -45,13 +39,7 @@ internal sealed class DesktopForm : Form
         {
             try
             {
-                var mode = ChooseModelMode();
-                if (!mode.HasValue)
-                {
-                    Close();
-                    return;
-                }
-                ApplyModelMode(mode.Value);
+                EnsureHarnessDependencies();
                 StartServer();
                 WaitForServer(port);
                 CoreWebView2Environment webViewEnvironment = null;
@@ -86,77 +74,36 @@ internal sealed class DesktopForm : Form
         Icon = applicationIcon;
     }
 
-    private ModelMode? ChooseModelMode()
+    private void EnsureHarnessDependencies()
     {
-        using (var dialog = new Form())
+        string root = AppDomain.CurrentDomain.BaseDirectory;
+        string node = Path.Combine(root, "runtime", "node.exe");
+        string npm = Path.Combine(root, "runtime", "npm.cmd");
+        string bin = Path.Combine(root, "app", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js");
+        if (File.Exists(bin)) return;
+        if (!File.Exists(node) || !File.Exists(npm)) throw new InvalidOperationException("DeepSeek Desktop is incomplete. Reinstall the application.");
+        if (MessageBox.Show("首次启动需要从国内高速镜像下载运行组件。下载完成后会自动打开，后续启动不会重复下载。", "准备运行组件", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
         {
-            dialog.Text = "DeepSeek Desktop";
-            dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-            dialog.StartPosition = FormStartPosition.CenterParent;
-            dialog.ClientSize = new System.Drawing.Size(560, 275);
-            dialog.MinimizeBox = false;
-            dialog.MaximizeBox = false;
-            dialog.ShowInTaskbar = false;
-
-            var title = new Label
-            {
-                Text = "选择本次使用的模型",
-                AutoSize = true,
-                Font = new System.Drawing.Font(System.Drawing.SystemFonts.MessageBoxFont.FontFamily, 15, System.Drawing.FontStyle.Bold),
-                Location = new System.Drawing.Point(28, 26),
-            };
-            var detail = new Label
-            {
-                Text = "Kilo Auto Free 可匿名使用，不需要登录或 API Key。DeepSeek API 模式则在内置界面中配置自己的密钥。",
-                AutoSize = true,
-                MaximumSize = new System.Drawing.Size(500, 0),
-                Location = new System.Drawing.Point(30, 68),
-            };
-            var free = new Button
-            {
-                Text = "免费模型（Kilo，免登录）",
-                DialogResult = DialogResult.Yes,
-                Size = new System.Drawing.Size(225, 88),
-                Location = new System.Drawing.Point(30, 132),
-            };
-            var api = new Button
-            {
-                Text = "DeepSeek API",
-                DialogResult = DialogResult.No,
-                Size = new System.Drawing.Size(225, 88),
-                Location = new System.Drawing.Point(305, 132),
-            };
-            dialog.Controls.AddRange(new Control[] { title, detail, free, api });
-            dialog.AcceptButton = free;
-            var result = dialog.ShowDialog(this);
-            if (result == DialogResult.Yes) return ModelMode.Free;
-            if (result == DialogResult.No) return ModelMode.DeepSeekApi;
-            return null;
+            throw new OperationCanceledException("已取消下载运行组件。");
         }
-    }
-
-    private static void ApplyModelMode(ModelMode mode)
-    {
-        string home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeepSeek Harness Data");
-        string patch = Path.Combine(home, "profiles", "web", "cordis.patch.yml");
-        if (!File.Exists(patch)) throw new InvalidOperationException("DeepSeek Desktop setup is incomplete. Reinstall the application.");
-        string disabled = "- id: llm-deepseek\r\n  disabled: true";
-        string enabled = "- id: llm-deepseek";
-        string freeDefault = "provider: kilo\r\n    model: kilo-auto/free";
-        string deepSeekDefault = "provider: deepseek-official\r\n    model: deepseek-v4-flash";
-        string text = File.ReadAllText(patch);
-        if (mode == ModelMode.Free)
+        using (var progress = new DownloadProgressForm())
         {
-            text = text.Replace(deepSeekDefault, freeDefault);
-            text = text.Replace(enabled + "\r\n  disabled: true", disabled).Replace(enabled + "\n  disabled: true", disabled);
-            if (!text.Contains(disabled)) text = text.Replace(enabled, disabled);
+            progress.Show(this);
+            var start = new ProcessStartInfo(npm, "install --omit=dev --no-audit --no-fund --package-lock=false --registry=https://registry.npmmirror.com --fetch-retries=3 --fetch-timeout=120000")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.Combine(root, "app"),
+            };
+            start.EnvironmentVariables["PATH"] = Path.Combine(root, "runtime") + ";" + Environment.GetEnvironmentVariable("PATH");
+            using (var install = Process.Start(start))
+            {
+                if (install == null) throw new InvalidOperationException("无法启动运行组件下载。");
+                while (!install.WaitForExit(100)) Application.DoEvents();
+                if (install.ExitCode != 0) throw new InvalidOperationException("运行组件下载失败。请检查网络后重新打开 DeepSeek Desktop。");
+            }
         }
-        else
-        {
-            text = text.Replace(freeDefault, deepSeekDefault);
-            text = text.Replace(disabled, enabled).Replace("- id: llm-deepseek\n  disabled: true", enabled);
-        }
-        File.WriteAllText(patch, text);
+        if (!File.Exists(bin)) throw new InvalidOperationException("运行组件下载不完整。请重新打开 DeepSeek Desktop。");
     }
 
     private void StartServer()
@@ -213,5 +160,24 @@ internal sealed class DesktopForm : Form
             }
         }
         throw new TimeoutException("DeepSeek Desktop did not start within 30 seconds.");
+    }
+}
+
+internal sealed class DownloadProgressForm : Form
+{
+    internal DownloadProgressForm()
+    {
+        Text = "DeepSeek Desktop";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        StartPosition = FormStartPosition.CenterParent;
+        ClientSize = new System.Drawing.Size(480, 150);
+        ControlBox = false;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ShowInTaskbar = false;
+        var title = new Label { Text = "正在下载运行组件", AutoSize = true, Font = new System.Drawing.Font(System.Drawing.SystemFonts.MessageBoxFont.FontFamily, 13, System.Drawing.FontStyle.Bold), Location = new System.Drawing.Point(24, 24) };
+        var detail = new Label { Text = "正在通过国内高速镜像下载，请勿关闭此窗口。", AutoSize = true, Location = new System.Drawing.Point(26, 58) };
+        var bar = new ProgressBar { Style = ProgressBarStyle.Marquee, MarqueeAnimationSpeed = 28, Location = new System.Drawing.Point(26, 92), Size = new System.Drawing.Size(428, 22) };
+        Controls.AddRange(new Control[] { title, detail, bar });
     }
 }
