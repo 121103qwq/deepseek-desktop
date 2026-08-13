@@ -1,4 +1,3 @@
 @echo off
 setlocal
-set "INSTALL_ROOT=%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\DeepSeek Desktop'; $desktop = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)) 'DeepSeek Desktop.lnk'; $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DeepSeek Desktop'; Remove-Item -LiteralPath $menu -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $desktop -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction SilentlyContinue; Start-Process powershell.exe -ArgumentList '-NoProfile','-WindowStyle','Hidden','-Command',('Start-Sleep -Seconds 1; Remove-Item -LiteralPath ''' + $env:INSTALL_ROOT + ''' -Recurse -Force') -WindowStyle Hidden"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Uninstall DeepSeek Harness.ps1"

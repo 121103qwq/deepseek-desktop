@@ -68,6 +68,8 @@ function Copy-CommonPayload([string]$PayloadRoot, [bool]$IncludeFixedWebViewRunt
   Copy-Item -Path (Join-Path $expandedNode '*') -Destination $runtimeRoot -Recurse
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\Launch DeepSeek Desktop.cmd') -Destination $PayloadRoot
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\Uninstall DeepSeek Harness.cmd') -Destination $PayloadRoot
+  Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\Uninstall DeepSeek Harness.ps1') -Destination $PayloadRoot
+  Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\Uninstall DeepSeek Harness Cleanup.ps1') -Destination $PayloadRoot
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\default-web.patch.yml') -Destination (Join-Path $PayloadRoot 'defaults\cordis.patch.yml')
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.svg') -Destination (Join-Path $PayloadRoot 'DeepSeek-Black-Logo.svg')
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.png') -Destination $PayloadRoot
