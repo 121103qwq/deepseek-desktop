@@ -108,14 +108,14 @@ internal sealed class DesktopForm : Form
             };
             var detail = new Label
             {
-                Text = "Groq 提供免费额度；选中后在内置 Harness 的模型设置中填入 Groq key。DeepSeek API 也在内置界面中配置密钥。",
+                Text = "Kilo Auto Free 可匿名使用，不需要登录或 API Key。DeepSeek API 模式则在内置界面中配置自己的密钥。",
                 AutoSize = true,
                 MaximumSize = new System.Drawing.Size(500, 0),
                 Location = new System.Drawing.Point(30, 68),
             };
             var free = new Button
             {
-                Text = "免费模型（Groq Free Plan）",
+                Text = "免费模型（Kilo，免登录）",
                 DialogResult = DialogResult.Yes,
                 Size = new System.Drawing.Size(225, 88),
                 Location = new System.Drawing.Point(30, 132),
@@ -143,7 +143,7 @@ internal sealed class DesktopForm : Form
         if (!File.Exists(patch)) throw new InvalidOperationException("DeepSeek Desktop setup is incomplete. Reinstall the application.");
         string disabled = "- id: llm-deepseek\r\n  disabled: true";
         string enabled = "- id: llm-deepseek";
-        string freeDefault = "provider: groq\r\n    model: openai/gpt-oss-20b";
+        string freeDefault = "provider: kilo\r\n    model: kilo-auto/free";
         string deepSeekDefault = "provider: deepseek-official\r\n    model: deepseek-v4-flash";
         string text = File.ReadAllText(patch);
         if (mode == ModelMode.Free)

@@ -124,7 +124,7 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $payloadArchive -CompressionLevel Optimal
   $installScript = Join-Path $workRoot "install-$Kind.ps1"
   $mode = if ($IncludeDependencies) { 'offline' } else { 'mirror' }
-  (Get-Content -Raw (Join-Path $distributionRoot 'templates\install.ps1')).Replace("'__INSTALL_MODE__'", "'$mode'") | Set-Content -LiteralPath $installScript -Encoding utf8
+  (Get-Content -Raw (Join-Path $distributionRoot 'templates\install.ps1')).Replace("'__INSTALL_MODE__'", "'$mode'").Replace('__PRODUCT_VERSION__', $dshVersion) | Set-Content -LiteralPath $installScript -Encoding utf8
   $sedPath = Join-Path $workRoot "installer-$Kind.sed"
   @"
 [Version]
@@ -162,10 +162,7 @@ SourceFiles0=$workRoot\
   $iexpress = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\iexpress.exe') -ArgumentList @('/N', '/Q', $sedPath) -PassThru -Wait -WindowStyle Hidden
   if ($iexpress.ExitCode -ne 0) { throw "IExpress failed with exit code $($iexpress.ExitCode)" }
   if (!(Test-Path -LiteralPath $installerPath -PathType Leaf)) { throw 'IExpress did not create the setup executable.' }
-  $hashPath = "$installerPath.sha256"
-  $installerHash = Get-Sha256 $installerPath
-  Set-Content -LiteralPath $hashPath -Value "$installerHash  $installerName" -Encoding ascii
-  Get-Item -LiteralPath $installerPath, $hashPath | Select-Object FullName, Length
+  Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
 }
 
 if ([Environment]::Is64BitOperatingSystem -eq $false) { throw 'This installer build targets Windows x64 only.' }
