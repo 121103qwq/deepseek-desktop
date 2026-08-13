@@ -38,6 +38,7 @@ internal sealed class DesktopForm : Form
         Width = 1440;
         Height = 920;
         MinimumSize = new System.Drawing.Size(960, 640);
+        WindowState = FormWindowState.Maximized;
         LoadApplicationIcon();
         Controls.Add(view);
         Shown += async (_, __) =>
@@ -79,13 +80,10 @@ internal sealed class DesktopForm : Form
 
     private void LoadApplicationIcon()
     {
-        string logo = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DeepSeek-Black-Logo.png");
+        string logo = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DeepSeek-Black-Logo.ico");
         if (!File.Exists(logo)) return;
-        using (var bitmap = new System.Drawing.Bitmap(logo))
-        {
-            applicationIcon = System.Drawing.Icon.FromHandle(bitmap.GetHicon());
-            Icon = applicationIcon;
-        }
+        applicationIcon = new System.Drawing.Icon(logo);
+        Icon = applicationIcon;
     }
 
     private ModelMode? ChooseModelMode()

@@ -65,6 +65,7 @@ function Copy-CommonPayload([string]$PayloadRoot, [bool]$IncludeFixedWebViewRunt
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\default-web.patch.yml') -Destination (Join-Path $PayloadRoot 'defaults\cordis.patch.yml')
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.svg') -Destination (Join-Path $PayloadRoot 'DeepSeek-Black-Logo.svg')
   Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.png') -Destination $PayloadRoot
+  Copy-Item -LiteralPath (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.ico') -Destination $PayloadRoot
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'lib\net462\Microsoft.Web.WebView2.Core.dll') -Destination $desktopRoot
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'lib\net462\Microsoft.Web.WebView2.WinForms.dll') -Destination $desktopRoot
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'build\native\x64\WebView2Loader.dll') -Destination $desktopRoot
@@ -81,6 +82,7 @@ function Copy-CommonPayload([string]$PayloadRoot, [bool]$IncludeFixedWebViewRunt
 /nologo
 /target:winexe
 /out:"$(Join-Path $PayloadRoot 'DeepSeek Desktop.exe')"
+/win32icon:"$(Join-Path $PayloadRoot 'DeepSeek-Black-Logo.ico')"
 /reference:System.dll
 /reference:System.Core.dll
 /reference:System.Drawing.dll

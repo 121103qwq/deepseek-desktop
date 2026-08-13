@@ -104,6 +104,25 @@ if (!(Test-Path -LiteralPath (Join-Path $homeRoot 'settings.yaml'))) {
 @"
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
+locale:
+  preference: zh
+llm-pi-ai:
+  providers:
+    kilo:
+      displayName: Kilo AI Gateway（匿名免费）
+      api: openai-completions
+      baseURL: https://api.kilo.ai/api/gateway
+      headers:
+        Authorization: Bearer unused
+      models:
+        - id: kilo-auto/free
+          name: Kilo Auto Free（免登录）
+          contextWindow: 131072
+          maxTokens: 8192
+        - id: stepfun/step-3.7-flash:free
+          name: StepFun 3.7 Flash（Kilo 免费）
+          contextWindow: 131072
+          maxTokens: 8192
 "@ | Set-Content -LiteralPath (Join-Path $homeRoot 'settings.yaml') -Encoding utf8
 }
 
@@ -111,6 +130,8 @@ $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut((Join-Path $menuRoot 'DeepSeek Desktop.lnk'))
 $shortcut.TargetPath = Join-Path $installRoot 'Launch DeepSeek Desktop.cmd'
 $shortcut.WorkingDirectory = $installRoot
+$shortcut.IconLocation = (Join-Path $installRoot 'DeepSeek-Black-Logo.ico')
+$shortcut.IconIndex = 0
 $shortcut.Description = 'Open DeepSeek Desktop'
 $shortcut.Save()
 
@@ -119,6 +140,8 @@ if ($createDesktopShortcut) {
   $desktopLink = $shell.CreateShortcut($desktopShortcutPath)
   $desktopLink.TargetPath = Join-Path $installRoot 'Launch DeepSeek Desktop.cmd'
   $desktopLink.WorkingDirectory = $installRoot
+  $desktopLink.IconLocation = (Join-Path $installRoot 'DeepSeek-Black-Logo.ico')
+  $desktopLink.IconIndex = 0
   $desktopLink.Description = 'Open DeepSeek Desktop'
   $desktopLink.Save()
 }
