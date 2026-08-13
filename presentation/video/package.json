@@ -1,0 +1,22 @@
+{
+  "name": "deepseek-desktop-presentation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "preview": "remotion studio --no-open",
+    "still": "remotion still DeepSeekDesktopTalk out/poster.png --frame=120",
+    "render": "remotion render DeepSeekDesktopTalk out/deepseek-desktop-v0.1.0-zh.mp4 --codec=h264 --crf=19"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.506",
+    "@remotion/media": "4.0.506",
+    "@remotion/transitions": "4.0.506",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "remotion": "4.0.506",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "typescript": "5.9.3"
+  }
+}

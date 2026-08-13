@@ -3,3 +3,6 @@ distribution/windows/dist/
 distribution/windows/*.log
 distribution/windows/*.log.err
 distribution/windows/presentation/
+presentation/video/node_modules/
+presentation/video/out/qa/
+presentation/video/out/poster.png

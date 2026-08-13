@@ -19,4 +19,6 @@ DeepSeek Harness 的 Windows x64 桌面安装包社区发行项目。
 
 查看[中文图文介绍](distribution/windows/INTRODUCTION.zh.md)和[Windows 安装包构建说明](distribution/windows/README.zh.md)。
 
+[观看 62 秒中文演讲视频](presentation/video/out/deepseek-desktop-v0.1.0-zh.mp4)，或查看[可编辑的 Remotion 视频源文件](presentation/video/README.md)。
+
 这是社区发行，不包含任何 API Key，也不是 DeepSeek 官方发布。
