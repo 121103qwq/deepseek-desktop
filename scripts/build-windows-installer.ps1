@@ -23,6 +23,9 @@ $nodeSha256 = 'ea3fad0e67a991d8477d8c01344b56e69c676ccb733f065b22436994b1253f86'
 $mirrorRegistry = 'https://registry.npmmirror.com'
 $webViewPackageVersion = '1.0.3856.49'
 $webViewPackageUrl = "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/$webViewPackageVersion"
+$fixedWebViewRuntimeVersion = '150.0.4078.99'
+$fixedWebViewRuntimeUrl = "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/$fixedWebViewRuntimeVersion/webview2.runtime.x64.$fixedWebViewRuntimeVersion.nupkg"
+$fixedWebViewRuntimeSha256 = 'c0907ddb8f2fff6f91ccb7fe972284dc47f07e34684d0aedefda3d0f6edf75d8'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $distributionRoot = Join-Path $repoRoot 'distribution\windows'
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) { $OutputDirectory = Join-Path $distributionRoot 'dist' }
@@ -31,6 +34,8 @@ $workRoot = Join-Path $distributionRoot ("build\windows-installer-" + [Guid]::Ne
 $nodeArchive = Join-Path $workRoot $nodeArchiveName
 $webViewPackage = Join-Path $workRoot 'webview2.nupkg'
 $webViewExtract = Join-Path $workRoot 'webview2'
+$fixedWebViewRuntimePackage = Join-Path $workRoot 'webview2-runtime.nupkg'
+$fixedWebViewRuntimeExtract = Join-Path $workRoot 'webview2-runtime'
 
 function Assert-ExternalSuccess([string]$Subject) {
   if ($LASTEXITCODE -ne 0) { throw "$Subject failed with exit code $LASTEXITCODE" }
@@ -49,7 +54,7 @@ function Write-AppManifest([string]$AppRoot) {
     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $AppRoot 'package.json') -Encoding utf8
 }
 
-function Copy-CommonPayload([string]$PayloadRoot) {
+function Copy-CommonPayload([string]$PayloadRoot, [bool]$IncludeFixedWebViewRuntime) {
   $runtimeRoot = Join-Path $PayloadRoot 'runtime'
   $appRoot = Join-Path $PayloadRoot 'app'
   $desktopRoot = $PayloadRoot
@@ -63,6 +68,11 @@ function Copy-CommonPayload([string]$PayloadRoot) {
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'lib\net462\Microsoft.Web.WebView2.Core.dll') -Destination $desktopRoot
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'lib\net462\Microsoft.Web.WebView2.WinForms.dll') -Destination $desktopRoot
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'build\native\x64\WebView2Loader.dll') -Destination $desktopRoot
+  if ($IncludeFixedWebViewRuntime) {
+    $fixedRuntimeSource = Join-Path $fixedWebViewRuntimeExtract 'contentFiles\any\any\WebView2'
+    if (!(Test-Path -LiteralPath (Join-Path $fixedRuntimeSource 'msedgewebview2.exe') -PathType Leaf)) { throw 'The fixed WebView2 runtime is incomplete.' }
+    Copy-Item -LiteralPath $fixedRuntimeSource -Destination (Join-Path $PayloadRoot 'WebView2') -Recurse
+  }
   $compiler = 'D:\Program Files (x86)\visualstudio\MSBuild\Current\Bin\Roslyn\csc.exe'
   if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) { throw "C# compiler is missing: $compiler" }
   $source = Join-Path $distributionRoot 'templates\DeepSeekDesktop.cs'
@@ -92,7 +102,7 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   $installerName = if ($Kind -eq 'offline') { "DeepSeek-Desktop-$dshVersion-Windows-x64-Offline-Setup.exe" } else { "DeepSeek-Desktop-$dshVersion-Windows-x64-Setup.exe" }
   $installerPath = Join-Path $outputPath $installerName
   if (Test-Path -LiteralPath $installerPath) { throw "Refusing to overwrite an existing installer: $installerPath" }
-  Copy-CommonPayload $payloadRoot
+  Copy-CommonPayload $payloadRoot $IncludeDependencies
   if ($IncludeDependencies) {
     Write-Host "Installing complete @deepseek-ai/dsh@$dshVersion dependency closure..."
     $originalPath = $env:PATH
@@ -176,6 +186,14 @@ Write-Host 'Downloading the embedded WebView binding...'
 Assert-ExternalSuccess 'WebView binding download'
 & 'D:\DevTools\Scoop\shims\7z.exe' x $webViewPackage "-o$webViewExtract" -y | Out-Null
 Assert-ExternalSuccess 'WebView binding extraction'
+
+Write-Host "Downloading the fixed WebView2 runtime $fixedWebViewRuntimeVersion..."
+& curl.exe --fail --location --silent --show-error --output $fixedWebViewRuntimePackage $fixedWebViewRuntimeUrl
+Assert-ExternalSuccess 'Fixed WebView2 runtime download'
+$actualFixedRuntimeHash = Get-Sha256 $fixedWebViewRuntimePackage
+if ($actualFixedRuntimeHash -ne $fixedWebViewRuntimeSha256) { throw "Fixed WebView2 runtime checksum mismatch: expected $fixedWebViewRuntimeSha256, got $actualFixedRuntimeHash" }
+& 'D:\DevTools\Scoop\shims\7z.exe' x $fixedWebViewRuntimePackage "-o$fixedWebViewRuntimeExtract" -y | Out-Null
+Assert-ExternalSuccess 'Fixed WebView2 runtime extraction'
 
 New-Setup 'offline' $true
 New-Setup 'mirror' $false

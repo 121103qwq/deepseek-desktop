@@ -52,7 +52,14 @@ internal sealed class DesktopForm : Form
                 ApplyModelMode(mode.Value);
                 StartServer();
                 WaitForServer();
-                await view.EnsureCoreWebView2Async();
+                CoreWebView2Environment webViewEnvironment = null;
+                string fixedRuntime = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WebView2");
+                if (File.Exists(Path.Combine(fixedRuntime, "msedgewebview2.exe")))
+                {
+                    string home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeepSeek Harness Data");
+                    webViewEnvironment = await CoreWebView2Environment.CreateAsync(fixedRuntime, Path.Combine(home, "webview2"));
+                }
+                await view.EnsureCoreWebView2Async(webViewEnvironment);
                 view.CoreWebView2.Settings.AreDevToolsEnabled = false;
                 view.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 view.CoreWebView2.Navigate("http://127.0.0.1:3080");
