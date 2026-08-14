@@ -14,7 +14,7 @@ DeepSeek Harness 的 Windows x64 桌面安装包社区发行项目。
 
 | 安装包 | 说明 |
 | --- | --- |
-| `DeepSeek-Desktop-0.2.0-Windows-x64-离线版.exe` | 内置 Harness、Node.js、固定版 WebView2 runtime 和辅助识图插件；安装组件无需另行下载。 |
+| `DeepSeek-Desktop-0.2.0-Windows-x64-Offline.exe`（Release 标签：`离线版`） | 内置 Harness、Node.js、固定版 WebView2 runtime 和辅助识图插件；安装组件无需另行下载。GitHub 会自动移除资产文件名中的中文字符，因此下载名使用 `Offline`。 |
 
 安装器支持自定义安装位置、可选桌面快捷方式、Kilo/DeepSeek API 路线、上游/社区更新通道和实验性辅助识图，并在 Windows“已安装的应用”中注册正常卸载入口。离线版只表示安装组件已内置，模型请求仍需联网。首次点击关闭窗口时，可选择以后最小化到任务栏或直接退出。
 
