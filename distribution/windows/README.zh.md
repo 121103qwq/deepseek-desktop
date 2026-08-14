@@ -10,6 +10,18 @@
 
 安装向导会一次性提供两种选择：**免费模型（Kilo，免登录）** 或 **DeepSeek API**；以后可在应用内修改，后续启动不会重复询问。默认路由是 Kilo Auto Free，使用 Kilo 的匿名免费额度，不使用本地模型。界面默认中文。还可选择跟随上游 Harness 或社区桌面 Release 检查更新，并启用 LLM7.io 匿名 `default` 视觉路由辅助识图。点击安装时必须确认非官方社区版声明。
 
+## 国内网络测试版（不随默认构建发布）
+
+需要验证国内网络下载时，显式传入 `-BuildMirror`：
+
+```powershell
+.\scripts\build-windows-installer.ps1 -BuildMirror -OutputDirectory .\distribution\windows\dist-mirror-test
+```
+
+该命令额外生成 `国内网络` 安装包。它只把 Node.js、桌面运行文件和依赖清单放入安装包；点击安装后先启动独立的“DeepSeek Desktop 安装”窗口，在桌面窗口启动前完成依赖下载。窗口顶部显示文件写入进度，中部显示整体依赖进度，并实时显示下载速度。安装器先探测 `registry.npmmirror.com`，连接超时或 npm 失败时自动切换 `registry.npmjs.org`；两条源都失败时不会把下载工作推迟到首次打开桌面窗口。
+
+`-BuildMirror` 仅用于本地测试，当前发布流程只上传离线版。
+
 ## 构建
 
 在仓库根目录的 PowerShell 会话中运行：

@@ -140,7 +140,7 @@ internal static class DeepSeekUpdater
     private static WebClient NewWebClient()
     {
         var client = new WebClient();
-        client.Headers[HttpRequestHeader.UserAgent] = "DeepSeek-Desktop-Updater/0.2.1";
+        client.Headers[HttpRequestHeader.UserAgent] = "DeepSeek-Desktop-Updater/0.2.2";
         client.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
         return client;
     }

@@ -19,11 +19,11 @@ DeepSeek Desktop 会在本机启动 Harness 服务，并在名为 `DeepSeek Desk
 
 | 安装包 | 适用情况 |
 | --- | --- |
-| `DeepSeek-Desktop-0.2.1-Windows-x64-Offline.exe`（Release 标签：`离线版`） | 内置 Harness 完整依赖、Node.js、固定版 WebView2 runtime 和辅助识图插件，安装组件无需另行下载。GitHub 会自动移除资产文件名中的中文字符，因此下载名使用 `Offline`。安装会一次性写入全部运行文件；Kilo、DeepSeek API 和视觉模型请求仍需联网。 |
+| `DeepSeek-Desktop-0.2.2-Windows-x64-离线版.exe` | 内置 Harness 完整依赖、Node.js、固定版 WebView2 runtime 和辅助识图插件，安装组件无需另行下载。安装会一次性写入全部运行文件；Kilo、DeepSeek API 和视觉模型请求仍需联网。 |
 
 ## 安装与首次启动
 
-1. 从项目 [Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.1) 下载离线版安装包。
+1. 从项目 [Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.2) 下载离线版安装包。
 2. 运行安装程序，选择安装位置、初始模型路线、更新通道、辅助识图及是否创建桌面快捷方式；辅助识图使用 dsh-vision-sidecar 0.1.3，默认调用 LLM7.io 匿名 `default` 视觉路由，不使用本地模型或共享 Key。
 3. 点击“立即安装”，阅读非官方社区版说明；只有确认继续后才开始安装。
 4. 原生安装进度条完成后启动 DeepSeek Desktop。第一次关闭窗口时，选择以后最小化到右下角通知区域或直接退出；通知区域图标可双击恢复窗口，并提供“退出”菜单。

@@ -53,6 +53,7 @@ Type: files; Name: "{app}\Uninstall DeepSeek Harness.ps1"
 Type: files; Name: "{app}\Uninstall DeepSeek Harness Cleanup.ps1"
 Type: files; Name: "{app}\Launch DeepSeek Desktop.cmd"
 Type: files; Name: "{app}\Update DeepSeek Desktop.ps1"
+Type: files; Name: "{app}\DeepSeek Mirror Installer.exe"
 
 [UninstallDelete]
 Type: files; Name: "{app}\desktop-settings.json"
@@ -71,6 +72,7 @@ Name: "{autodesktop}\DeepSeek Desktop"; Filename: "{app}\DeepSeek Desktop.exe"; 
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeepSeek Desktop"; Flags: deletekey
 
 [Run]
+__MIRROR_RUN__
 Filename: "{app}\DeepSeek Installer Config.exe"; Parameters: "--model {code:GetModelMode} --update-channel {code:GetUpdateChannel} --auto-update {code:GetAutoUpdate} --vision {code:GetVisionEnabled} --install-mode __INSTALL_MODE__ --desktop-version __DESKTOP_VERSION__ --dsh-version __DSH_VERSION__"; StatusMsg: "正在写入中文、模型、更新和视觉配置…"; Flags: runhidden waituntilterminated
 Filename: "{app}\DeepSeek Desktop.exe"; Description: "启动 DeepSeek Desktop"; Flags: nowait postinstall skipifsilent
 

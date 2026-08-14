@@ -3,20 +3,22 @@
 Build DeepSeek Desktop setup executables for Windows x64.
 
 .DESCRIPTION
-Creates one offline setup with the complete published Harness dependency closure,
-a bundled Node runtime, a fixed WebView2 runtime, and an embedded WebView window.
+Creates an offline setup with the complete published Harness dependency closure.
+With -BuildMirror it also creates a smaller domestic-network setup whose dependency
+download runs inside the installer before the desktop window is launched.
 The payload is stored as a non-solid 7-Zip archive so Setup can appear quickly and
 extract every required runtime file during installation with native progress reporting.
 ##>
 [CmdletBinding()]
 param(
-  [string]$OutputDirectory
+  [string]$OutputDirectory,
+  [switch]$BuildMirror
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$desktopVersion = '0.2.1'
+$desktopVersion = '0.2.2'
 $dshVersion = '0.1.0-rc.6'
 $nodeVersion = '22.19.0'
 $nodeArchiveName = "node-v$nodeVersion-win-x64.zip"
@@ -77,7 +79,7 @@ function Remove-NonRuntimePackageFiles([string]$NodeModulesRoot) {
     Remove-Item -Force
 }
 
-function Copy-CommonPayload([string]$PayloadRoot) {
+function Copy-CommonPayload([string]$PayloadRoot, [bool]$IncludeMirrorInstaller) {
   $runtimeRoot = Join-Path $PayloadRoot 'runtime'
   $appRoot = Join-Path $PayloadRoot 'app'
   $desktopRoot = $PayloadRoot
@@ -122,6 +124,11 @@ function Copy-CommonPayload([string]$PayloadRoot) {
   $updaterSource = Join-Path $distributionRoot 'templates\DeepSeekUpdater.cs'
   & $compiler /nologo /target:winexe "/out:$(Join-Path $PayloadRoot 'DeepSeek Updater.exe')" "/win32icon:$(Join-Path $PayloadRoot 'DeepSeek-Black-Logo.ico')" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll $updaterSource
   Assert-ExternalSuccess 'DeepSeek updater compilation'
+  if ($IncludeMirrorInstaller) {
+    $mirrorSource = Join-Path $distributionRoot 'templates\DeepSeekMirrorInstaller.cs'
+    & $compiler /nologo /target:winexe "/out:$(Join-Path $PayloadRoot 'DeepSeek Mirror Installer.exe')" "/win32icon:$(Join-Path $PayloadRoot 'DeepSeek-Black-Logo.ico')" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $mirrorSource
+    Assert-ExternalSuccess 'Domestic mirror installer compilation'
+  }
   Write-AppManifest $appRoot
 }
 
@@ -130,13 +137,15 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   $appRoot = Join-Path $payloadRoot 'app'
   $runtimeRoot = Join-Path $payloadRoot 'runtime'
   $offlineSuffix = [string][char]0x79bb + [char]0x7ebf + [char]0x7248
-  $installerName = "DeepSeek-Desktop-$desktopVersion-Windows-x64-$offlineSuffix.exe"
+  $mirrorSuffix = [string][char]0x56fd + [char]0x5185 + [char]0x7f51 + [char]0x7edc
+  $installerSuffix = if ($IncludeDependencies) { $offlineSuffix } else { $mirrorSuffix }
+  $installerName = "DeepSeek-Desktop-$desktopVersion-Windows-x64-$installerSuffix.exe"
   $installerPath = Join-Path $outputPath $installerName
   $innoBaseName = "DeepSeek-Desktop-$desktopVersion-Windows-x64-$Kind.tmp"
   $innoTarget = Join-Path $outputPath ($innoBaseName + '.exe')
   if (Test-Path -LiteralPath $installerPath) { throw "Refusing to overwrite an existing installer: $installerPath" }
   if (Test-Path -LiteralPath $innoTarget) { throw "Refusing to overwrite an existing Inno Setup target: $innoTarget" }
-  Copy-CommonPayload $payloadRoot
+  Copy-CommonPayload $payloadRoot (-not $IncludeDependencies)
   if ($IncludeDependencies) {
     Write-Host "Installing complete @deepseek-ai/dsh@$dshVersion dependency closure..."
     $originalPath = $env:PATH
@@ -231,11 +240,12 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   }
   & $sevenZip t $payloadArchive | Out-Null
   Assert-ExternalSuccess 'Offline payload archive verification'
-  $mode = 'offline'
+  $mode = if ($IncludeDependencies) { 'offline' } else { 'mirror' }
+  $mirrorRun = if ($IncludeDependencies) { '' } else { 'Filename: "{app}\DeepSeek Mirror Installer.exe"; StatusMsg: "正在下载运行组件（国内网络优先）…"; Flags: waituntilterminated' }
   $issPath = Join-Path $workRoot "installer-$Kind.iss"
   $fileVersion = $desktopVersion + '.0'
   $issText = [IO.File]::ReadAllText((Join-Path $distributionRoot 'templates\installer.iss'), [Text.Encoding]::UTF8)
-  $issText = $issText.Replace('__DESKTOP_VERSION__', $desktopVersion).Replace('__DSH_VERSION__', $dshVersion).Replace('__FILE_VERSION__', $fileVersion).Replace('__INSTALL_MODE__', $mode).Replace('__PAYLOAD_ARCHIVE__', $payloadArchive).Replace('__PAYLOAD_BYTES__', ([string]$payloadBytes)).Replace('__OUTPUT_DIR__', $outputPath).Replace('__OUTPUT_BASE__', $innoBaseName).Replace('__SETUP_ICON__', (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.ico')).Replace('__WIZARD_LOGO__', (Join-Path $workRoot 'installer-logo.bmp')).Replace('__LANGUAGE_FILE__', $innoLanguageFile)
+  $issText = $issText.Replace('__DESKTOP_VERSION__', $desktopVersion).Replace('__DSH_VERSION__', $dshVersion).Replace('__FILE_VERSION__', $fileVersion).Replace('__INSTALL_MODE__', $mode).Replace('__MIRROR_RUN__', $mirrorRun).Replace('__PAYLOAD_ARCHIVE__', $payloadArchive).Replace('__PAYLOAD_BYTES__', ([string]$payloadBytes)).Replace('__OUTPUT_DIR__', $outputPath).Replace('__OUTPUT_BASE__', $innoBaseName).Replace('__SETUP_ICON__', (Join-Path $distributionRoot 'templates\DeepSeek-Black-Logo.ico')).Replace('__WIZARD_LOGO__', (Join-Path $workRoot 'installer-logo.bmp')).Replace('__LANGUAGE_FILE__', $innoLanguageFile)
   [IO.File]::WriteAllText($issPath, $issText, (New-Object Text.UTF8Encoding($false)))
   Write-Host "Creating $Kind setup executable with Inno Setup..."
   & $innoCompiler --quiet-progress $issPath
@@ -297,3 +307,4 @@ $wizardLogo.Dispose()
 $sourceLogo.Dispose()
 
 New-Setup 'offline' $true
+if ($BuildMirror) { New-Setup 'mirror' $false }

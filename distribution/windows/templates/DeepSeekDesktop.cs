@@ -170,6 +170,11 @@ internal sealed class DesktopForm : Form
         string bin = Path.Combine(root, "app", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js");
         if (File.Exists(bin)) return;
         if (!File.Exists(node) || !File.Exists(npm)) throw new InvalidOperationException("DeepSeek Desktop is incomplete. Reinstall the application.");
+        string installMode = ReadStringSetting(Path.Combine(root, "desktop-settings.json"), "installMode", "offline");
+        if (string.Equals(installMode, "mirror", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("国内网络版安装器未完成运行组件下载。请重新运行安装包，安装器会先完成依赖下载，再打开 DeepSeek Desktop。");
+        }
         if (MessageBox.Show("安装内容不完整，需要从 npm 官方源修复运行组件。下载完成后会自动打开。", "修复运行组件", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
         {
             throw new OperationCanceledException("已取消下载运行组件。");
