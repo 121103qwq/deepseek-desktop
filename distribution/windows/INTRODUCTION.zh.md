@@ -19,7 +19,7 @@ DeepSeek Desktop 会在本机启动 Harness 服务，并在名为 `DeepSeek Desk
 
 | 安装包 | 适用情况 |
 | --- | --- |
-| `DeepSeek-Desktop-0.2.0-Windows-x64-离线版.exe` | 内置 Harness 完整依赖、Node.js、固定版 WebView2 runtime 和辅助识图插件，安装组件无需另行下载。Kilo、DeepSeek API 和视觉模型请求仍需联网。 |
+| `DeepSeek-Desktop-0.2.0-Windows-x64-Offline.exe`（Release 标签：`离线版`） | 内置 Harness 完整依赖、Node.js、固定版 WebView2 runtime 和辅助识图插件，安装组件无需另行下载。GitHub 会自动移除资产文件名中的中文字符，因此下载名使用 `Offline`。Kilo、DeepSeek API 和视觉模型请求仍需联网。 |
 
 ## 安装与首次启动
 
