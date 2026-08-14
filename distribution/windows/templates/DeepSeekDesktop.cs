@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
@@ -23,8 +25,10 @@ internal sealed class DesktopForm : Form
 {
     private readonly WebView2 view = new WebView2 { Dock = DockStyle.Fill };
     private Process server;
+    private readonly StringBuilder serverOutput = new StringBuilder();
     private System.Drawing.Icon applicationIcon;
     private int port;
+    private string closeBehavior;
 
     internal DesktopForm()
     {
@@ -34,12 +38,15 @@ internal sealed class DesktopForm : Form
         MinimumSize = new System.Drawing.Size(960, 640);
         WindowState = FormWindowState.Maximized;
         LoadApplicationIcon();
+        closeBehavior = ReadStringSetting(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "desktop-settings.json"), "closeBehavior", "ask");
         Controls.Add(view);
         Shown += async (_, __) =>
         {
             try
             {
+                if (!CheckForUpdates()) return;
                 EnsureHarnessDependencies();
+                ConfigureVisionAssistant();
                 StartServer();
                 WaitForServer(port);
                 CoreWebView2Environment webViewEnvironment = null;
@@ -60,10 +67,57 @@ internal sealed class DesktopForm : Form
                 Close();
             }
         };
+        FormClosing += HandleFormClosing;
         FormClosed += (_, __) =>
         {
             if (server != null && !server.HasExited) server.Kill();
         };
+    }
+
+    private void HandleFormClosing(object sender, FormClosingEventArgs eventArgs)
+    {
+        if (eventArgs.CloseReason != CloseReason.UserClosing) return;
+        if (string.Equals(closeBehavior, "ask", StringComparison.OrdinalIgnoreCase))
+        {
+            DialogResult choice = MessageBox.Show(
+                "这是第一次关闭 DeepSeek Desktop。\r\n\r\n选择“是”：以后点关闭时最小化到任务栏。\r\n选择“否”：以后点关闭时直接退出。\r\n选择“取消”：返回应用，下次关闭时再询问。",
+                "选择关闭窗口行为",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+            if (choice == DialogResult.Cancel)
+            {
+                eventArgs.Cancel = true;
+                return;
+            }
+            closeBehavior = choice == DialogResult.Yes ? "minimize" : "close";
+            WriteStringSetting(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "desktop-settings.json"), "closeBehavior", closeBehavior);
+        }
+        if (string.Equals(closeBehavior, "minimize", StringComparison.OrdinalIgnoreCase) && WindowState != FormWindowState.Minimized)
+        {
+            eventArgs.Cancel = true;
+            WindowState = FormWindowState.Minimized;
+        }
+    }
+
+    private bool CheckForUpdates()
+    {
+        string updater = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DeepSeek Updater.exe");
+        if (!File.Exists(updater)) return true;
+        var start = new ProcessStartInfo(updater)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
+        };
+        using (var update = Process.Start(start))
+        {
+            if (update == null) return true;
+            update.WaitForExit();
+            if (update.ExitCode != 10) return true;
+        }
+        Close();
+        return false;
     }
 
     private void LoadApplicationIcon()
@@ -82,14 +136,14 @@ internal sealed class DesktopForm : Form
         string bin = Path.Combine(root, "app", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js");
         if (File.Exists(bin)) return;
         if (!File.Exists(node) || !File.Exists(npm)) throw new InvalidOperationException("DeepSeek Desktop is incomplete. Reinstall the application.");
-        if (MessageBox.Show("首次启动需要从国内高速镜像下载运行组件。下载完成后会自动打开，后续启动不会重复下载。", "准备运行组件", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
+        if (MessageBox.Show("安装内容不完整，需要从 npm 官方源修复运行组件。下载完成后会自动打开。", "修复运行组件", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
         {
             throw new OperationCanceledException("已取消下载运行组件。");
         }
-        using (var progress = new DownloadProgressForm())
+        using (var progress = new DownloadProgressForm("正在修复运行组件", "正在通过 npm 官方源下载，请勿关闭此窗口。"))
         {
             progress.Show(this);
-            var start = new ProcessStartInfo("cmd.exe", "/d /s /c \"\"" + npm + "\" install --omit=dev --no-audit --no-fund --package-lock=false --registry=https://registry.npmmirror.com --fetch-retries=3 --fetch-timeout=120000\"")
+            var start = new ProcessStartInfo("cmd.exe", "/d /s /c \"\"" + npm + "\" install --omit=dev --no-audit --no-fund --package-lock=false --registry=https://registry.npmjs.org --fetch-retries=3 --fetch-timeout=120000\"")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -106,6 +160,131 @@ internal sealed class DesktopForm : Form
         if (!File.Exists(bin)) throw new InvalidOperationException("运行组件下载不完整。请重新打开 DeepSeek Desktop。");
     }
 
+    private void ConfigureVisionAssistant()
+    {
+        string root = AppDomain.CurrentDomain.BaseDirectory;
+        string home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeepSeek Harness Data");
+        string node = Path.Combine(root, "runtime", "node.exe");
+        string npm = Path.Combine(root, "runtime", "npm.cmd");
+        string bin = Path.Combine(root, "app", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js");
+        string settings = Path.Combine(root, "desktop-settings.json");
+        bool visionEnabled = ReadBooleanSetting(settings, "visionEnabled", false);
+        string modelMode = ReadStringSetting(settings, "modelMode", "free");
+
+        Directory.CreateDirectory(home);
+        var initialize = new ProcessStartInfo(node, "\"" + bin + "\" --profile web --dump-config")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = root,
+        };
+        initialize.EnvironmentVariables["DSH_HOME"] = home;
+        using (var process = Process.Start(initialize))
+        {
+            if (process == null) throw new InvalidOperationException("无法初始化 DeepSeek Harness 配置。");
+            process.WaitForExit();
+            if (process.ExitCode != 0) throw new InvalidOperationException("DeepSeek Harness 配置初始化失败。");
+        }
+
+        if (visionEnabled)
+        {
+            string pluginManifest = Path.Combine(root, "app", "node_modules", "dsh-vision-sidecar", "package.json");
+            if (!File.Exists(pluginManifest) || !File.ReadAllText(pluginManifest).Contains("\"version\": \"0.1.2\""))
+            {
+                string pluginArchive = Path.Combine(root, "vision", "dsh-vision-sidecar-v0.1.2.tgz");
+                if (!File.Exists(pluginArchive)) throw new InvalidOperationException("辅助识图组件缺失，请重新安装 DeepSeek Desktop。");
+                using (var progress = new DownloadProgressForm("正在启用辅助识图", "正在安装内置视觉插件，不会下载本地模型。"))
+                {
+                    progress.Show(this);
+                    var installStart = new ProcessStartInfo("cmd.exe", "/d /s /c \"\"" + npm + "\" install \"" + pluginArchive + "\" --save-exact --omit=dev --no-audit --no-fund --package-lock=false --registry=https://registry.npmjs.org\"")
+                    {
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        WorkingDirectory = Path.Combine(root, "app"),
+                    };
+                    installStart.EnvironmentVariables["PATH"] = Path.Combine(root, "runtime") + ";" + Environment.GetEnvironmentVariable("PATH");
+                    using (var install = Process.Start(installStart))
+                    {
+                        if (install == null) throw new InvalidOperationException("无法安装辅助识图组件。");
+                        while (!install.WaitForExit(100)) Application.DoEvents();
+                        if (install.ExitCode != 0) throw new InvalidOperationException("辅助识图组件安装失败，请检查网络后重试。");
+                    }
+                }
+            }
+            CopyVisionPluginToProfile(root, home);
+        }
+
+        string configureScript = Path.Combine(root, "Configure Vision.mjs");
+        var configure = new ProcessStartInfo(node, "\"" + configureScript + "\" \"" + home + "\" " + (visionEnabled ? "true" : "false") + " " + modelMode)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = root,
+        };
+        using (var process = Process.Start(configure))
+        {
+            if (process == null) throw new InvalidOperationException("无法写入辅助识图配置。");
+            process.WaitForExit();
+            if (process.ExitCode != 0) throw new InvalidOperationException("辅助识图配置失败。");
+        }
+    }
+
+    private static void CopyVisionPluginToProfile(string root, string home)
+    {
+        string source = Path.Combine(root, "app", "node_modules", "dsh-vision-sidecar");
+        string target = Path.Combine(home, "profiles", "web", "node_modules", "dsh-vision-sidecar");
+        string sourceManifest = Path.Combine(source, "package.json");
+        string targetManifest = Path.Combine(target, "package.json");
+        if (!File.Exists(sourceManifest)) throw new InvalidOperationException("辅助识图组件缺失，请重新安装 DeepSeek Desktop。");
+        if (File.Exists(targetManifest) && File.ReadAllText(targetManifest).Contains("\"version\": \"0.1.2\"")) return;
+        if (Directory.Exists(target)) Directory.Delete(target, true);
+        foreach (string directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(directory.Replace(source, target));
+        }
+        Directory.CreateDirectory(target);
+        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        {
+            string destination = file.Replace(source, target);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            File.Copy(file, destination, true);
+        }
+    }
+
+    private static bool ReadBooleanSetting(string path, string name, bool fallback)
+    {
+        if (!File.Exists(path)) return fallback;
+        Match match = Regex.Match(File.ReadAllText(path), "\\\"" + Regex.Escape(name) + "\\\"\\s*:\\s*(true|false)", RegexOptions.IgnoreCase);
+        return match.Success ? string.Equals(match.Groups[1].Value, "true", StringComparison.OrdinalIgnoreCase) : fallback;
+    }
+
+    private static string ReadStringSetting(string path, string name, string fallback)
+    {
+        if (!File.Exists(path)) return fallback;
+        Match match = Regex.Match(File.ReadAllText(path), "\\\"" + Regex.Escape(name) + "\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+        return match.Success ? match.Groups[1].Value : fallback;
+    }
+
+    private static void WriteStringSetting(string path, string name, string value)
+    {
+        string json = File.Exists(path) ? File.ReadAllText(path) : "{\r\n}\r\n";
+        string pattern = "\\\"" + Regex.Escape(name) + "\\\"\\s*:\\s*\\\"[^\\\"]*\\\"";
+        string property = "\"" + name + "\": \"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        if (Regex.IsMatch(json, pattern))
+        {
+            json = new Regex(pattern).Replace(json, property, 1);
+        }
+        else
+        {
+            int closingBrace = json.LastIndexOf('}');
+            if (closingBrace < 0) throw new InvalidDataException("desktop-settings.json 格式无效。");
+            string before = json.Substring(0, closingBrace).TrimEnd();
+            if (!before.EndsWith("{", StringComparison.Ordinal)) before += ",";
+            json = before + "\r\n  " + property + "\r\n}" + json.Substring(closingBrace + 1);
+        }
+        File.WriteAllText(path, json, new UTF8Encoding(false));
+    }
+
     private void StartServer()
     {
         string root = AppDomain.CurrentDomain.BaseDirectory;
@@ -120,11 +299,27 @@ internal sealed class DesktopForm : Form
             UseShellExecute = false,
             CreateNoWindow = true,
             WorkingDirectory = root,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         start.EnvironmentVariables["DSH_HOME"] = home;
         start.EnvironmentVariables["DSH_WEB_DESKTOP"] = "1";
-        server = Process.Start(start);
-        if (server == null) throw new InvalidOperationException("DeepSeek Desktop could not start the local Harness service.");
+        server = new Process { StartInfo = start };
+        server.OutputDataReceived += (_, eventArgs) => AppendServerOutput(eventArgs.Data);
+        server.ErrorDataReceived += (_, eventArgs) => AppendServerOutput(eventArgs.Data);
+        if (!server.Start()) throw new InvalidOperationException("DeepSeek Desktop could not start the local Harness service.");
+        server.BeginOutputReadLine();
+        server.BeginErrorReadLine();
+    }
+
+    private void AppendServerOutput(string line)
+    {
+        if (string.IsNullOrEmpty(line)) return;
+        lock (serverOutput)
+        {
+            serverOutput.AppendLine(line);
+            if (serverOutput.Length > 8000) serverOutput.Remove(0, serverOutput.Length - 8000);
+        }
     }
 
     private static int FindAvailablePort()
@@ -141,20 +336,29 @@ internal sealed class DesktopForm : Form
         }
     }
 
-    private static void WaitForServer(int port)
+    private void WaitForServer(int port)
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);
         while (DateTime.UtcNow < deadline)
         {
+            if (server == null || server.HasExited)
+            {
+                string detail;
+                lock (serverOutput) detail = serverOutput.ToString().Trim();
+                throw new InvalidOperationException("DeepSeek Harness 本地服务启动失败。" + (detail.Length == 0 ? "" : "\r\n\r\n" + detail));
+            }
             try
             {
-                using (var client = new TcpClient())
+                var request = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + port + "/");
+                request.Timeout = 1000;
+                request.ReadWriteTimeout = 1000;
+                request.Proxy = null;
+                using (var response = (HttpWebResponse)request.GetResponse())
                 {
-                    client.Connect("127.0.0.1", port);
-                    return;
+                    if (response.StatusCode == HttpStatusCode.OK) return;
                 }
             }
-            catch (SocketException)
+            catch (WebException)
             {
                 Thread.Sleep(250);
             }
@@ -165,7 +369,7 @@ internal sealed class DesktopForm : Form
 
 internal sealed class DownloadProgressForm : Form
 {
-    internal DownloadProgressForm()
+    internal DownloadProgressForm(string heading, string description)
     {
         Text = "DeepSeek Desktop";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -175,8 +379,8 @@ internal sealed class DownloadProgressForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        var title = new Label { Text = "正在下载运行组件", AutoSize = true, Font = new System.Drawing.Font(System.Drawing.SystemFonts.MessageBoxFont.FontFamily, 13, System.Drawing.FontStyle.Bold), Location = new System.Drawing.Point(24, 24) };
-        var detail = new Label { Text = "正在通过国内高速镜像下载，请勿关闭此窗口。", AutoSize = true, Location = new System.Drawing.Point(26, 58) };
+        var title = new Label { Text = heading, AutoSize = true, Font = new System.Drawing.Font(System.Drawing.SystemFonts.MessageBoxFont.FontFamily, 13, System.Drawing.FontStyle.Bold), Location = new System.Drawing.Point(24, 24) };
+        var detail = new Label { Text = description, AutoSize = true, Location = new System.Drawing.Point(26, 58) };
         var bar = new ProgressBar { Style = ProgressBarStyle.Marquee, MarqueeAnimationSpeed = 28, Location = new System.Drawing.Point(26, 92), Size = new System.Drawing.Size(428, 22) };
         Controls.AddRange(new Control[] { title, detail, bar });
     }
