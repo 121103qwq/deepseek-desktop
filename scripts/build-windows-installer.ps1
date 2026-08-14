@@ -136,10 +136,7 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   $payloadRoot = Join-Path $workRoot "payload-$Kind"
   $appRoot = Join-Path $payloadRoot 'app'
   $runtimeRoot = Join-Path $payloadRoot 'runtime'
-  $offlineSuffix = [string][char]0x79bb + [char]0x7ebf + [char]0x7248
-  $mirrorSuffix = [string][char]0x56fd + [char]0x5185 + [char]0x7f51 + [char]0x7edc
-  $installerSuffix = if ($IncludeDependencies) { $offlineSuffix } else { $mirrorSuffix }
-  $installerName = "DeepSeek-Desktop-$desktopVersion-Windows-x64-$installerSuffix.exe"
+  $installerName = if ($IncludeDependencies) { 'Deepseek-desktop-offline.exe' } else { 'Deepseek-desktop-online.exe' }
   $installerPath = Join-Path $outputPath $installerName
   $innoBaseName = "DeepSeek-Desktop-$desktopVersion-Windows-x64-$Kind.tmp"
   $innoTarget = Join-Path $outputPath ($innoBaseName + '.exe')

@@ -18,7 +18,7 @@
 .\scripts\build-windows-installer.ps1 -BuildMirror -OutputDirectory .\distribution\windows\dist-mirror-test
 ```
 
-该命令额外生成 `国内网络` 安装包。它只把 Node.js、桌面运行文件和依赖清单放入安装包；点击安装后先启动独立的“DeepSeek Desktop 安装”窗口，在桌面窗口启动前完成依赖下载。窗口顶部显示文件写入进度，中部显示整体依赖进度，并实时显示下载速度。安装器先探测 `registry.npmmirror.com`，连接超时或 npm 失败时自动切换 `registry.npmjs.org`；两条源都失败时不会把下载工作推迟到首次打开桌面窗口。
+该命令额外生成 `Deepseek-desktop-online.exe` 测试安装包。它只把 Node.js、桌面运行文件和依赖清单放入安装包；点击安装后先启动独立的“DeepSeek Desktop 安装”窗口，在桌面窗口启动前完成依赖下载。窗口顶部显示文件写入进度，中部显示整体依赖进度，并实时显示下载速度。安装器先探测 `registry.npmmirror.com`，连接超时或 npm 失败时自动切换 `registry.npmjs.org`；两条源都失败时不会把下载工作推迟到首次打开桌面窗口。
 
 `-BuildMirror` 仅用于本地测试，当前发布流程只上传离线版。
 
