@@ -6,7 +6,7 @@ Build DeepSeek Desktop setup executables for Windows x64.
 Creates one offline setup with the complete published Harness dependency closure,
 a bundled Node runtime, a fixed WebView2 runtime, and an embedded WebView window.
 The payload is stored as a non-solid 7-Zip archive so Setup can appear quickly and
-extract directly into the application directory with native progress reporting.
+extract every required runtime file during installation with native progress reporting.
 ##>
 [CmdletBinding()]
 param(
@@ -16,7 +16,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$desktopVersion = '0.2.0'
+$desktopVersion = '0.2.1'
 $dshVersion = '0.1.0-rc.6'
 $nodeVersion = '22.19.0'
 $nodeArchiveName = "node-v$nodeVersion-win-x64.zip"
@@ -27,9 +27,9 @@ $webViewPackageUrl = "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView
 $fixedWebViewRuntimeVersion = '150.0.4078.99'
 $fixedWebViewRuntimeUrl = "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/$fixedWebViewRuntimeVersion/webview2.runtime.x64.$fixedWebViewRuntimeVersion.nupkg"
 $fixedWebViewRuntimeSha256 = 'c0907ddb8f2fff6f91ccb7fe972284dc47f07e34684d0aedefda3d0f6edf75d8'
-$visionPluginVersion = '0.1.2'
+$visionPluginVersion = '0.1.3'
 $visionPluginUrl = "https://codeload.github.com/121103qwq/dsh-vision-sidecar/tar.gz/refs/tags/v$visionPluginVersion"
-$visionPluginSha256 = 'c7cd64d8428440536a496a88a7888595e35c3f3567f034c13acbc1c382f4c1b7'
+$visionPluginSha256 = 'bc2036a3369889352f99cb09b5036dcf1419f5e34951e70bb8b0415fa894a1b5'
 $innoLanguageUrl = 'https://raw.githubusercontent.com/jrsoftware/issrc/is-6_7_3/Files/Languages/Unofficial/ChineseSimplified.isl'
 $innoLanguageSha256 = '7d544b9bb1d142cfa11f2e5d3cc8abe2e55f8e066c5124e3772675aa236e1278'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -64,7 +64,20 @@ function Write-AppManifest([string]$AppRoot) {
     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $AppRoot 'package.json') -Encoding utf8
 }
 
-function Copy-CommonPayload([string]$PayloadRoot, [bool]$IncludeFixedWebViewRuntime) {
+function Remove-NonRuntimePackageFiles([string]$NodeModulesRoot) {
+  $directoryNames = @('.github', '.yarn', '__tests__', 'benchmark', 'benchmarks', 'coverage', 'example', 'examples', 'test', 'tests')
+  $directories = Get-ChildItem -LiteralPath $NodeModulesRoot -Directory -Recurse -Force |
+    Where-Object { $directoryNames -contains $_.Name.ToLowerInvariant() } |
+    Sort-Object { $_.FullName.Length } -Descending
+  foreach ($directory in $directories) {
+    Remove-Item -LiteralPath $directory.FullName -Recurse -Force
+  }
+  Get-ChildItem -LiteralPath $NodeModulesRoot -File -Recurse -Force |
+    Where-Object { $_.Name -like '*.map' -or $_.Name -like '*.d.ts' -or $_.Name -like '*.d.mts' -or $_.Name -like '*.d.cts' -or $_.Name -like '*.ts' } |
+    Remove-Item -Force
+}
+
+function Copy-CommonPayload([string]$PayloadRoot) {
   $runtimeRoot = Join-Path $PayloadRoot 'runtime'
   $appRoot = Join-Path $PayloadRoot 'app'
   $desktopRoot = $PayloadRoot
@@ -80,11 +93,9 @@ function Copy-CommonPayload([string]$PayloadRoot, [bool]$IncludeFixedWebViewRunt
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'lib\net462\Microsoft.Web.WebView2.Core.dll') -Destination $desktopRoot
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'lib\net462\Microsoft.Web.WebView2.WinForms.dll') -Destination $desktopRoot
   Copy-Item -LiteralPath (Join-Path $webViewExtract 'build\native\x64\WebView2Loader.dll') -Destination $desktopRoot
-  if ($IncludeFixedWebViewRuntime) {
-    $fixedRuntimeSource = Join-Path $fixedWebViewRuntimeExtract 'contentFiles\any\any\WebView2'
-    if (!(Test-Path -LiteralPath (Join-Path $fixedRuntimeSource 'msedgewebview2.exe') -PathType Leaf)) { throw 'The fixed WebView2 runtime is incomplete.' }
-    Copy-Item -LiteralPath $fixedRuntimeSource -Destination (Join-Path $PayloadRoot 'WebView2') -Recurse
-  }
+  $fixedRuntimeSource = Join-Path $fixedWebViewRuntimeExtract 'contentFiles\any\any\WebView2'
+  if (!(Test-Path -LiteralPath (Join-Path $fixedRuntimeSource 'msedgewebview2.exe') -PathType Leaf)) { throw 'The fixed WebView2 runtime is incomplete.' }
+  Copy-Item -LiteralPath $fixedRuntimeSource -Destination (Join-Path $PayloadRoot 'WebView2') -Recurse
   $compiler = 'D:\Program Files (x86)\visualstudio\MSBuild\Current\Bin\Roslyn\csc.exe'
   if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) { throw "C# compiler is missing: $compiler" }
   $source = Join-Path $distributionRoot 'templates\DeepSeekDesktop.cs'
@@ -125,7 +136,7 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
   $innoTarget = Join-Path $outputPath ($innoBaseName + '.exe')
   if (Test-Path -LiteralPath $installerPath) { throw "Refusing to overwrite an existing installer: $installerPath" }
   if (Test-Path -LiteralPath $innoTarget) { throw "Refusing to overwrite an existing Inno Setup target: $innoTarget" }
-  Copy-CommonPayload $payloadRoot $IncludeDependencies
+  Copy-CommonPayload $payloadRoot
   if ($IncludeDependencies) {
     Write-Host "Installing complete @deepseek-ai/dsh@$dshVersion dependency closure..."
     $originalPath = $env:PATH
@@ -153,17 +164,67 @@ function New-Setup([string]$Kind, [bool]$IncludeDependencies) {
     }
     & (Join-Path $runtimeRoot 'node.exe') $dshBin --help
     Assert-ExternalSuccess 'DeepSeek Harness post-plugin smoke test'
+    Write-Host 'Removing development-only package files from the installer payload...'
+    Remove-NonRuntimePackageFiles (Join-Path $appRoot 'node_modules')
+    & (Join-Path $runtimeRoot 'node.exe') $dshBin --help
+    Assert-ExternalSuccess 'DeepSeek Harness optimized payload smoke test'
+    $buildDshHome = Join-Path $workRoot 'dsh-home-smoke'
+    $originalDshHome = $env:DSH_HOME
+    try {
+      $buildProfile = Join-Path $buildDshHome 'profiles\web'
+      New-Item -ItemType Directory -Force -Path $buildProfile | Out-Null
+      Copy-Item -LiteralPath (Join-Path $payloadRoot 'defaults\cordis.patch.yml') -Destination (Join-Path $buildProfile 'cordis.patch.yml') -Force
+      $profileModules = Join-Path $buildProfile 'node_modules'
+      $moduleLinkCommand = 'mklink /J "' + $profileModules + '" "' + (Join-Path $appRoot 'node_modules') + '"'
+      & cmd.exe /d /s /c $moduleLinkCommand | Out-Null
+      Assert-ExternalSuccess 'Harness profile dependency link creation'
+      $env:DSH_HOME = $buildDshHome
+      $node = Join-Path $runtimeRoot 'node.exe'
+      & $node $dshBin --profile web --dump-config | Out-Null
+      Assert-ExternalSuccess 'DeepSeek Harness profile initialization smoke test'
+      & $node (Join-Path $payloadRoot 'Configure Vision.mjs') $buildDshHome true free
+      Assert-ExternalSuccess 'Vision profile configuration smoke test'
+      & $node $dshBin --profile web --dump-config | Out-Null
+      Assert-ExternalSuccess 'DeepSeek Harness optimized vision profile smoke test'
+      $webPort = Get-Random -Minimum 40000 -Maximum 50000
+      $webOutput = Join-Path $workRoot 'web-smoke.stdout.txt'
+      $webError = Join-Path $workRoot 'web-smoke.stderr.txt'
+      $webProcess = Start-Process -FilePath $node -ArgumentList ('"' + $dshBin + '" --profile web --port ' + $webPort) -WorkingDirectory $payloadRoot -RedirectStandardOutput $webOutput -RedirectStandardError $webError -PassThru
+      $webReady = $false
+      try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(30)
+        while ([DateTime]::UtcNow -lt $deadline) {
+          if ($webProcess.HasExited) {
+            $detail = (Get-Content -LiteralPath $webOutput, $webError -Raw -ErrorAction SilentlyContinue) -join "`n"
+            throw "Optimized Harness web server exited during smoke test.`n$detail"
+          }
+          try {
+            $response = Invoke-WebRequest -UseBasicParsing -Uri ("http://127.0.0.1:" + $webPort + '/') -TimeoutSec 1
+            if ($response.StatusCode -eq 200 -and $response.Content -match 'DeepSeek Harness') { $webReady = $true; break }
+          } catch {
+          }
+          Start-Sleep -Milliseconds 250
+        }
+      } finally {
+        if (!$webProcess.HasExited) { $webProcess | Stop-Process -Force; $webProcess.WaitForExit() }
+      }
+      if (!$webReady) { throw 'Optimized Harness web server did not return the expected page within 30 seconds.' }
+    } finally {
+      $env:DSH_HOME = $originalDshHome
+    }
   }
   Set-Content -LiteralPath (Join-Path $payloadRoot 'VERSION.txt') -Value "DeepSeek Desktop $desktopVersion`r`nDeepSeek Harness $dshVersion`r`nBundled Node.js $nodeVersion" -Encoding ascii
   $payloadFiles = Get-ChildItem -LiteralPath $payloadRoot -Recurse -File -Force
-  $excludedPayloadFiles = $payloadFiles | Where-Object { $_.Name -like '*.map' -or $_.Name -like '*.d.ts' -or $_.Name -like '*.d.mts' -or $_.Name -like '*.d.cts' }
+  $excludedPayloadFiles = $payloadFiles | Where-Object {
+    $_.Name -like '*.map' -or $_.Name -like '*.d.ts' -or $_.Name -like '*.d.mts' -or $_.Name -like '*.d.cts' -or $_.Name -like '*.ts'
+  }
   $payloadBytes = ($payloadFiles | Measure-Object -Property Length -Sum).Sum - ($excludedPayloadFiles | Measure-Object -Property Length -Sum).Sum
   if ($payloadBytes -le 0) { throw 'The offline payload is empty.' }
   $payloadArchive = Join-Path $workRoot "payload-$Kind.7z"
   Write-Host "Packing the offline payload as a non-solid archive..."
   Push-Location $payloadRoot
   try {
-    & $sevenZip a -t7z $payloadArchive '.\*' '-mx=5' '-ms=off' '-mmt=on' '-xr!*.map' '-xr!*.d.ts' '-xr!*.d.mts' '-xr!*.d.cts' | Out-Null
+    & $sevenZip a -t7z $payloadArchive '.\*' '-mx=5' '-ms=off' '-mmt=on' '-xr!*.map' '-xr!*.d.ts' '-xr!*.d.mts' '-xr!*.d.cts' '-xr!*.ts' | Out-Null
     Assert-ExternalSuccess 'Offline payload archive creation'
   } finally {
     Pop-Location

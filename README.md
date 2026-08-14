@@ -10,13 +10,13 @@ DeepSeek Harness 的 Windows x64 桌面安装包社区发行项目。
 
 ## 下载
 
-[GitHub Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.0) 提供一个 Windows x64 离线安装包：
+[GitHub Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.1) 提供一个 Windows x64 离线安装包：
 
 | 安装包 | 说明 |
 | --- | --- |
-| `DeepSeek-Desktop-0.2.0-Windows-x64-Offline.exe`（Release 标签：`离线版`） | 内置 Harness、Node.js、固定版 WebView2 runtime 和辅助识图插件；安装组件无需另行下载。GitHub 会自动移除资产文件名中的中文字符，因此下载名使用 `Offline`。 |
+| `DeepSeek-Desktop-0.2.1-Windows-x64-Offline.exe`（Release 标签：`离线版`） | 内置 Harness、Node.js、固定版 WebView2 runtime 和辅助识图插件；安装组件无需另行下载。GitHub 会自动移除资产文件名中的中文字符，因此下载名使用 `Offline`。 |
 
-安装器支持自定义安装位置、可选桌面快捷方式、Kilo/DeepSeek API 路线、上游/社区更新通道和实验性辅助识图，并在 Windows“已安装的应用”中注册正常卸载入口。离线版只表示安装组件已内置，模型请求仍需联网。首次点击关闭窗口时，可选择以后最小化到任务栏或直接退出。
+安装器支持自定义安装位置、可选桌面快捷方式、Kilo/DeepSeek API 路线、上游/社区更新通道和实验性辅助识图，并在 Windows“已安装的应用”中注册正常卸载入口。辅助识图使用 dsh-vision-sidecar 0.1.3，默认通过 LLM7.io 匿名 `default` 视觉路由处理图片，不使用本地模型或内置共享 Key。离线版只表示安装组件已内置，模型请求仍需联网；安装过程会一次性写入全部运行文件。首次点击关闭窗口时，可选择以后最小化到右下角通知区域或直接退出。
 
 查看[中文图文介绍](distribution/windows/INTRODUCTION.zh.md)和[Windows 安装包构建说明](distribution/windows/README.zh.md)。
 

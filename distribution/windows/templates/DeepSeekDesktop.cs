@@ -27,8 +27,10 @@ internal sealed class DesktopForm : Form
     private Process server;
     private readonly StringBuilder serverOutput = new StringBuilder();
     private System.Drawing.Icon applicationIcon;
+    private NotifyIcon notificationIcon;
     private int port;
     private string closeBehavior;
+    private bool exiting;
 
     internal DesktopForm()
     {
@@ -38,15 +40,15 @@ internal sealed class DesktopForm : Form
         MinimumSize = new System.Drawing.Size(960, 640);
         WindowState = FormWindowState.Maximized;
         LoadApplicationIcon();
+        InitializeNotificationIcon();
         closeBehavior = ReadStringSetting(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "desktop-settings.json"), "closeBehavior", "ask");
         Controls.Add(view);
         Shown += async (_, __) =>
         {
             try
             {
-                if (!CheckForUpdates()) return;
+                CheckForUpdates();
                 EnsureHarnessDependencies();
-                ConfigureVisionAssistant();
                 StartServer();
                 WaitForServer(port);
                 CoreWebView2Environment webViewEnvironment = null;
@@ -71,16 +73,18 @@ internal sealed class DesktopForm : Form
         FormClosed += (_, __) =>
         {
             if (server != null && !server.HasExited) server.Kill();
+            if (notificationIcon != null) notificationIcon.Dispose();
         };
     }
 
     private void HandleFormClosing(object sender, FormClosingEventArgs eventArgs)
     {
+        if (exiting) return;
         if (eventArgs.CloseReason != CloseReason.UserClosing) return;
         if (string.Equals(closeBehavior, "ask", StringComparison.OrdinalIgnoreCase))
         {
             DialogResult choice = MessageBox.Show(
-                "这是第一次关闭 DeepSeek Desktop。\r\n\r\n选择“是”：以后点关闭时最小化到任务栏。\r\n选择“否”：以后点关闭时直接退出。\r\n选择“取消”：返回应用，下次关闭时再询问。",
+                "这是第一次关闭 DeepSeek Desktop。\r\n\r\n选择“是”：以后点关闭时最小化到右下角通知区域。\r\n选择“否”：以后点关闭时直接退出。\r\n选择“取消”：返回应用，下次关闭时再询问。",
                 "选择关闭窗口行为",
                 MessageBoxButtons.YesNoCancel,
                 MessageBoxIcon.Question,
@@ -93,11 +97,47 @@ internal sealed class DesktopForm : Form
             closeBehavior = choice == DialogResult.Yes ? "minimize" : "close";
             WriteStringSetting(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "desktop-settings.json"), "closeBehavior", closeBehavior);
         }
-        if (string.Equals(closeBehavior, "minimize", StringComparison.OrdinalIgnoreCase) && WindowState != FormWindowState.Minimized)
+        if (string.Equals(closeBehavior, "minimize", StringComparison.OrdinalIgnoreCase))
         {
             eventArgs.Cancel = true;
-            WindowState = FormWindowState.Minimized;
+            HideToNotificationArea();
         }
+    }
+
+    private void InitializeNotificationIcon()
+    {
+        notificationIcon = new NotifyIcon
+        {
+            Text = "DeepSeek Desktop",
+            Icon = applicationIcon,
+            Visible = false,
+        };
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("打开 DeepSeek Desktop", null, (_, __) => RestoreFromNotificationArea());
+        menu.Items.Add("退出", null, (_, __) => ExitApplication());
+        notificationIcon.ContextMenuStrip = menu;
+        notificationIcon.DoubleClick += (_, __) => RestoreFromNotificationArea();
+    }
+
+    private void HideToNotificationArea()
+    {
+        notificationIcon.Visible = true;
+        Hide();
+    }
+
+    private void RestoreFromNotificationArea()
+    {
+        Show();
+        WindowState = FormWindowState.Normal;
+        Activate();
+        notificationIcon.Visible = false;
+    }
+
+    private void ExitApplication()
+    {
+        exiting = true;
+        notificationIcon.Visible = false;
+        Close();
     }
 
     private bool CheckForUpdates()
@@ -110,14 +150,8 @@ internal sealed class DesktopForm : Form
             CreateNoWindow = true,
             WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
         };
-        using (var update = Process.Start(start))
-        {
-            if (update == null) return true;
-            update.WaitForExit();
-            if (update.ExitCode != 10) return true;
-        }
-        Close();
-        return false;
+        Process.Start(start);
+        return true;
     }
 
     private void LoadApplicationIcon()
@@ -158,104 +192,6 @@ internal sealed class DesktopForm : Form
             }
         }
         if (!File.Exists(bin)) throw new InvalidOperationException("运行组件下载不完整。请重新打开 DeepSeek Desktop。");
-    }
-
-    private void ConfigureVisionAssistant()
-    {
-        string root = AppDomain.CurrentDomain.BaseDirectory;
-        string home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeepSeek Harness Data");
-        string node = Path.Combine(root, "runtime", "node.exe");
-        string npm = Path.Combine(root, "runtime", "npm.cmd");
-        string bin = Path.Combine(root, "app", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js");
-        string settings = Path.Combine(root, "desktop-settings.json");
-        bool visionEnabled = ReadBooleanSetting(settings, "visionEnabled", false);
-        string modelMode = ReadStringSetting(settings, "modelMode", "free");
-
-        Directory.CreateDirectory(home);
-        var initialize = new ProcessStartInfo(node, "\"" + bin + "\" --profile web --dump-config")
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = root,
-        };
-        initialize.EnvironmentVariables["DSH_HOME"] = home;
-        using (var process = Process.Start(initialize))
-        {
-            if (process == null) throw new InvalidOperationException("无法初始化 DeepSeek Harness 配置。");
-            process.WaitForExit();
-            if (process.ExitCode != 0) throw new InvalidOperationException("DeepSeek Harness 配置初始化失败。");
-        }
-
-        if (visionEnabled)
-        {
-            string pluginManifest = Path.Combine(root, "app", "node_modules", "dsh-vision-sidecar", "package.json");
-            if (!File.Exists(pluginManifest) || !File.ReadAllText(pluginManifest).Contains("\"version\": \"0.1.2\""))
-            {
-                string pluginArchive = Path.Combine(root, "vision", "dsh-vision-sidecar-v0.1.2.tgz");
-                if (!File.Exists(pluginArchive)) throw new InvalidOperationException("辅助识图组件缺失，请重新安装 DeepSeek Desktop。");
-                using (var progress = new DownloadProgressForm("正在启用辅助识图", "正在安装内置视觉插件，不会下载本地模型。"))
-                {
-                    progress.Show(this);
-                    var installStart = new ProcessStartInfo("cmd.exe", "/d /s /c \"\"" + npm + "\" install \"" + pluginArchive + "\" --save-exact --omit=dev --no-audit --no-fund --package-lock=false --registry=https://registry.npmjs.org\"")
-                    {
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        WorkingDirectory = Path.Combine(root, "app"),
-                    };
-                    installStart.EnvironmentVariables["PATH"] = Path.Combine(root, "runtime") + ";" + Environment.GetEnvironmentVariable("PATH");
-                    using (var install = Process.Start(installStart))
-                    {
-                        if (install == null) throw new InvalidOperationException("无法安装辅助识图组件。");
-                        while (!install.WaitForExit(100)) Application.DoEvents();
-                        if (install.ExitCode != 0) throw new InvalidOperationException("辅助识图组件安装失败，请检查网络后重试。");
-                    }
-                }
-            }
-            CopyVisionPluginToProfile(root, home);
-        }
-
-        string configureScript = Path.Combine(root, "Configure Vision.mjs");
-        var configure = new ProcessStartInfo(node, "\"" + configureScript + "\" \"" + home + "\" " + (visionEnabled ? "true" : "false") + " " + modelMode)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = root,
-        };
-        using (var process = Process.Start(configure))
-        {
-            if (process == null) throw new InvalidOperationException("无法写入辅助识图配置。");
-            process.WaitForExit();
-            if (process.ExitCode != 0) throw new InvalidOperationException("辅助识图配置失败。");
-        }
-    }
-
-    private static void CopyVisionPluginToProfile(string root, string home)
-    {
-        string source = Path.Combine(root, "app", "node_modules", "dsh-vision-sidecar");
-        string target = Path.Combine(home, "profiles", "web", "node_modules", "dsh-vision-sidecar");
-        string sourceManifest = Path.Combine(source, "package.json");
-        string targetManifest = Path.Combine(target, "package.json");
-        if (!File.Exists(sourceManifest)) throw new InvalidOperationException("辅助识图组件缺失，请重新安装 DeepSeek Desktop。");
-        if (File.Exists(targetManifest) && File.ReadAllText(targetManifest).Contains("\"version\": \"0.1.2\"")) return;
-        if (Directory.Exists(target)) Directory.Delete(target, true);
-        foreach (string directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
-        {
-            Directory.CreateDirectory(directory.Replace(source, target));
-        }
-        Directory.CreateDirectory(target);
-        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-        {
-            string destination = file.Replace(source, target);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination));
-            File.Copy(file, destination, true);
-        }
-    }
-
-    private static bool ReadBooleanSetting(string path, string name, bool fallback)
-    {
-        if (!File.Exists(path)) return fallback;
-        Match match = Regex.Match(File.ReadAllText(path), "\\\"" + Regex.Escape(name) + "\\\"\\s*:\\s*(true|false)", RegexOptions.IgnoreCase);
-        return match.Success ? string.Equals(match.Groups[1].Value, "true", StringComparison.OrdinalIgnoreCase) : fallback;
     }
 
     private static string ReadStringSetting(string path, string name, string fallback)

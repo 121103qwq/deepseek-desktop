@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows.Forms;
@@ -34,6 +35,7 @@ internal static class DeepSeekInstallerConfig
             ConfigureModelPatch(patchPath, values["model"]);
             ConfigureSettings(home);
             WriteDesktopSettings(installRoot, values);
+            PrepareHarnessProfile(installRoot, home, values);
             return 0;
         }
         catch (Exception error)
@@ -116,6 +118,60 @@ internal static class DeepSeekInstallerConfig
             settings = "ui-onboarding:\r\n  welcomeNoticeVersion: 2026-08-14.1\r\nlocale:\r\n  preference: zh\r\n" + providers;
         }
         File.WriteAllText(settingsPath, settings, new UTF8Encoding(true));
+    }
+
+    private static void PrepareHarnessProfile(string installRoot, string home, Dictionary<string, string> values)
+    {
+        string node = Path.Combine(installRoot, "runtime", "node.exe");
+        string dsh = Path.Combine(installRoot, "app", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js");
+        string configureVision = Path.Combine(installRoot, "Configure Vision.mjs");
+        if (!File.Exists(node) || !File.Exists(dsh) || !File.Exists(configureVision)) throw new InvalidOperationException("DeepSeek Desktop 运行文件不完整。请重新运行安装包。");
+
+        LinkApplicationModulesIntoProfile(installRoot, home);
+        RunNode(node, "\"" + dsh + "\" --profile web --dump-config", installRoot, home, "DeepSeek Harness 配置初始化失败。");
+        RunNode(node, "\"" + configureVision + "\" \"" + home + "\" " + BooleanLiteral(values["vision"]) + " " + values["model"], installRoot, home, "辅助识图配置失败。");
+        RunNode(node, "\"" + dsh + "\" --profile web --dump-config", installRoot, home, "DeepSeek Harness 配置验证失败。");
+    }
+
+    private static void RunNode(string node, string arguments, string workingDirectory, string home, string errorMessage)
+    {
+        var start = new ProcessStartInfo(node, arguments)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = workingDirectory,
+        };
+        start.EnvironmentVariables["DSH_HOME"] = home;
+        using (var process = Process.Start(start))
+        {
+            if (process == null) throw new InvalidOperationException(errorMessage);
+            process.WaitForExit();
+            if (process.ExitCode != 0) throw new InvalidOperationException(errorMessage);
+        }
+    }
+
+    private static void LinkApplicationModulesIntoProfile(string installRoot, string home)
+    {
+        string source = Path.Combine(installRoot, "app", "node_modules");
+        string target = Path.Combine(home, "profiles", "web", "node_modules");
+        string sourceManifest = Path.Combine(source, "@deepseek-ai", "dsh", "package.json");
+        string targetManifest = Path.Combine(target, "@deepseek-ai", "dsh", "package.json");
+        if (!File.Exists(sourceManifest)) throw new InvalidOperationException("DeepSeek Harness 依赖缺失。请重新运行安装包。");
+        if (File.Exists(targetManifest) && (File.GetAttributes(target) & FileAttributes.ReparsePoint) != 0) return;
+        if (Directory.Exists(target)) Directory.Delete(target, true);
+        Directory.CreateDirectory(Path.GetDirectoryName(target));
+        var createJunction = new ProcessStartInfo("cmd.exe", "/d /s /c mklink /J \"" + target + "\" \"" + source + "\"")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = installRoot,
+        };
+        using (var process = Process.Start(createJunction))
+        {
+            if (process == null) throw new InvalidOperationException("无法连接 DeepSeek Harness 依赖。请重新运行安装包。");
+            process.WaitForExit();
+            if (process.ExitCode != 0 || !File.Exists(targetManifest)) throw new InvalidOperationException("DeepSeek Harness 依赖连接失败。请重新运行安装包。");
+        }
     }
 
     private static void WriteDesktopSettings(string installRoot, Dictionary<string, string> values)

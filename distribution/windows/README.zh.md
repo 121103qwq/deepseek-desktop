@@ -6,9 +6,9 @@
 
 安装程序内置 Node.js 22.19.0，在名为 `DeepSeek Desktop` 的 WebView 窗口中打开本地 Harness UI，并添加一个开始菜单快捷方式。它不请求管理员权限，也不修改系统 `PATH`。安装向导可选择安装位置和是否创建桌面快捷方式，并会在 Windows“已安装的应用”中注册卸载入口。
 
-离线版内置已发布 Harness 的完整依赖闭包、固定版 WebView2 runtime 和辅助识图插件。应用数据保存在 `%LOCALAPPDATA%\DeepSeek Harness Data`；附带的卸载程序会移除程序文件和快捷方式，同时保留该数据目录。
+离线版内置已发布 Harness 的完整依赖闭包、固定版 WebView2 runtime 和辅助识图插件。安装器会一次性展开运行文件，首次启动不做安装工作。应用数据保存在 `%LOCALAPPDATA%\DeepSeek Harness Data`；附带的卸载程序会移除程序文件和快捷方式，同时保留该数据目录。
 
-安装向导会一次性提供两种选择：**免费模型（Kilo，免登录）** 或 **DeepSeek API**；以后可在应用内修改，后续启动不会重复询问。默认路由是 Kilo Auto Free，使用 Kilo 的匿名免费额度，不使用本地模型。界面默认中文。还可选择跟随上游 Harness 或社区桌面 Release 检查更新，并启用 OVHcloud 匿名视觉模型辅助识图。点击安装时必须确认非官方社区版声明。
+安装向导会一次性提供两种选择：**免费模型（Kilo，免登录）** 或 **DeepSeek API**；以后可在应用内修改，后续启动不会重复询问。默认路由是 Kilo Auto Free，使用 Kilo 的匿名免费额度，不使用本地模型。界面默认中文。还可选择跟随上游 Harness 或社区桌面 Release 检查更新，并启用 LLM7.io 匿名 `default` 视觉路由辅助识图。点击安装时必须确认非官方社区版声明。
 
 ## 构建
 

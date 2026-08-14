@@ -8,7 +8,7 @@ The setup bundles Node.js 22.19.0, opens the local Harness UI inside a `DeepSeek
 
 The offline setup includes the complete published Harness dependency closure, a fixed WebView2 runtime, and the optional vision sidecar. Application data stays in `%LOCALAPPDATA%\DeepSeek Harness Data`; the included uninstaller removes the program files and shortcut while preserving that data directory.
 
-The installer offers one initial choice: **Free model (Kilo, no sign-in)** or **DeepSeek API**. The default route is Kilo Auto Free, which uses Kilo's anonymous free allocation and does not use a local model. It also offers upstream/community update channels and an optional anonymous OVHcloud vision sidecar. Before file extraction, a mandatory dialog states that this is not an official DeepSeek product.
+The installer offers one initial choice: **Free model (Kilo, no sign-in)** or **DeepSeek API**. The default route is Kilo Auto Free, which uses Kilo's anonymous free allocation and does not use a local model. It also offers upstream/community update channels and an optional anonymous LLM7.io `default` vision sidecar. Before file extraction, a mandatory dialog states that this is not an official DeepSeek product.
 
 ## Build
 

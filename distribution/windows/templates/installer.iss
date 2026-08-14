@@ -207,13 +207,13 @@ begin
   VisionCheck.Width := ScaleX(300);
   VisionCheck.Height := ScaleY(24);
   VisionCheck.Caption := '启用辅助识图（实验性）';
-  AddHint('内置 dsh-vision-sidecar，默认调用 OVHcloud Qwen2.5-VL 匿名层（2 RPM/IP/模型）。不下载本地模型；图片会发送给远程视觉服务。', 266, 42);
+  AddHint('内置 dsh-vision-sidecar，默认调用 LLM7.io 匿名 default 视觉路由（免登录、免 Key）。不下载本地模型；图片会发送给远程视觉服务。', 266, 42);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if CurPageID = OptionsPage.ID then
+  if (CurPageID = OptionsPage.ID) and (not WizardSilent) then
   begin
     Result := MsgBox(
       '【非官方社区版说明】' + #13#10 + #13#10 +

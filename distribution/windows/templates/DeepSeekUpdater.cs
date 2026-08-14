@@ -16,7 +16,7 @@ internal static class DeepSeekUpdater
     private static readonly string InstallRoot = AppDomain.CurrentDomain.BaseDirectory;
     private static readonly string SettingsPath = Path.Combine(InstallRoot, "desktop-settings.json");
     private static readonly string StatePath = Path.Combine(InstallRoot, "updater-state.json");
-    private static readonly string LogPath = Path.Combine(InstallRoot, "updater.log");
+    private static readonly string LogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeepSeek Harness Data", "updater.log");
 
     [STAThread]
     private static int Main(string[] args)
@@ -68,7 +68,7 @@ internal static class DeepSeekUpdater
         string stage = Path.Combine(InstallRoot, "app-update-" + Guid.NewGuid().ToString("N"));
         string backup = Path.Combine(InstallRoot, "app-backup-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
-        File.WriteAllText(Path.Combine(stage, "package.json"), "{\r\n  \"name\": \"deepseek-desktop-runtime\",\r\n  \"version\": \"" + JsonEscape(latest) + "\",\r\n  \"private\": true,\r\n  \"dependencies\": {\r\n    \"@deepseek-ai/dsh\": \"" + JsonEscape(latest) + "\",\r\n    \"dsh-vision-sidecar\": \"file:../vision/dsh-vision-sidecar-v0.1.2.tgz\"\r\n  }\r\n}\r\n", new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(stage, "package.json"), "{\r\n  \"name\": \"deepseek-desktop-runtime\",\r\n  \"version\": \"" + JsonEscape(latest) + "\",\r\n  \"private\": true,\r\n  \"dependencies\": {\r\n    \"@deepseek-ai/dsh\": \"" + JsonEscape(latest) + "\",\r\n    \"dsh-vision-sidecar\": \"file:../vision/dsh-vision-sidecar-v0.1.3.tgz\"\r\n  }\r\n}\r\n", new UTF8Encoding(false));
         try
         {
             RunBusy("正在更新 DeepSeek Harness", "正在从 npm 官方源下载上游运行组件，请勿关闭。", delegate
@@ -140,7 +140,7 @@ internal static class DeepSeekUpdater
     private static WebClient NewWebClient()
     {
         var client = new WebClient();
-        client.Headers[HttpRequestHeader.UserAgent] = "DeepSeek-Desktop-Updater/0.2.0";
+        client.Headers[HttpRequestHeader.UserAgent] = "DeepSeek-Desktop-Updater/0.2.1";
         client.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
         return client;
     }
