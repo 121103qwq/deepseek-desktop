@@ -1,12 +1,12 @@
 {
   "name": "deepseek-desktop-presentation",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "preview": "remotion studio --no-open",
-    "still": "remotion still DeepSeekDesktopTalk out/poster.png --frame=120",
-    "render": "remotion render DeepSeekDesktopTalk out/deepseek-desktop-v0.1.0-zh.mp4 --codec=h264 --crf=19"
+    "still": "remotion still DeepSeekDesktopTalk out/poster-v0.2.1.png --frame=120",
+    "render": "remotion render DeepSeekDesktopTalk out/deepseek-desktop-v0.2.1-zh.mp4 --codec=h264 --crf=19"
   },
   "dependencies": {
     "@remotion/cli": "4.0.506",
