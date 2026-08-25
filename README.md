@@ -1,74 +1,74 @@
 # DeepSeek Desktop
 
-[简体中文](README.zh-CN.md)
+[English](README.en.md)
 
-A community-maintained Windows x64 desktop distribution of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
+DeepSeek Harness 的 Windows x64 桌面安装包社区发行项目。
 
-> **Unofficial community build:** DeepSeek Desktop is not an official DeepSeek product, is not affiliated with DeepSeek, and is not endorsed by DeepSeek. The installer repeats this notice before installation begins.
+> **非官方社区版：** 本项目不是 DeepSeek 官方产品，不代表、不隶属于 DeepSeek，也未获得官方背书。安装器会在开始安装前再次明确提示。
 
-![DeepSeek Desktop Chinese interface](docs/images/deepseek-desktop-main.png)
+![DeepSeek Desktop 中文界面](docs/images/deepseek-desktop-main.png)
 
-DeepSeek Desktop starts DeepSeek Harness locally and opens its interface in an embedded WebView2 window named `DeepSeek Desktop`, instead of launching an external browser. The installer asks once whether to start with anonymous Kilo models or the DeepSeek API; the choice can be changed later inside Harness.
+DeepSeek Desktop 会在本机启动 DeepSeek Harness，并在名为 `DeepSeek Desktop` 的内置 WebView2 窗口中加载界面，不会打开外部浏览器。安装向导只在安装时询问一次使用 Kilo 匿名免费模型还是 DeepSeek API，之后仍可在 Harness 内修改。
 
-## Highlights
+## 主要功能
 
-- Native per-user Windows installer with a normal uninstall entry and no administrator requirement.
-- Embedded WebView2 desktop window, tray behavior, Start menu entry, and optional desktop shortcut.
-- Offline installation payload containing the published Harness dependency closure, Node.js, a pinned WebView2 runtime, and the optional vision sidecar. Model requests still require an internet connection.
-- Kilo anonymous free routing or a user-supplied DeepSeek API key. No API key is bundled with the installer.
-- Chinese defaults, explicit third-party data notices, and an update flow that asks before installing a new version.
-- User sessions and settings are preserved under `%LOCALAPPDATA%\DeepSeek Harness Data` when the application is uninstalled.
+- 当前用户级 Windows 原生安装器，不要求管理员权限，并注册正常卸载入口。
+- 内置 WebView2 桌面窗口、通知区域行为、开始菜单入口和可选桌面快捷方式。
+- 离线安装包内置已发布的 Harness 完整依赖、Node.js、固定版 WebView2 runtime 和可选辅助识图插件；模型请求仍需联网。
+- 可选 Kilo 匿名免费路由或用户自己的 DeepSeek API Key；安装包不包含任何共享 API Key。
+- 默认中文界面、明确的第三方数据提示，以及安装新版本前先询问的更新流程。
+- 卸载时保留 `%LOCALAPPDATA%\DeepSeek Harness Data` 中的会话和设置。
 
-## Download
+## 下载
 
-The current [GitHub Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.2) provides one Windows x64 installer:
+当前 [GitHub Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.2) 提供一个 Windows x64 安装包：
 
-| Installer | Description |
+| 安装包 | 说明 |
 | --- | --- |
-| `Deepseek-desktop-offline.exe` | Includes Harness, Node.js, a pinned WebView2 runtime, and the optional vision sidecar, so installation components do not need to be downloaded during setup. |
+| `Deepseek-desktop-offline.exe` | 内置 Harness、Node.js、固定版 WebView2 runtime 和可选辅助识图插件，安装时无需另行下载这些组件。 |
 
-Only download installers from this repository's Releases page. The current community build is not code-signed, so Windows may show an unknown-publisher or reputation warning. Do not disable Microsoft Defender.
+请只从本仓库的 Releases 页面下载安装包。当前社区构建尚未进行代码签名，Windows 可能显示“未知发布者”或信誉提示；请不要关闭 Microsoft Defender。
 
-## Early usage snapshot
+## 早期使用数据
 
-Public GitHub data as of **2026-08-25**:
+截至 **2026-08-25** 的 GitHub 公开数据：
 
-| Stars | Public releases | Cumulative installer downloads |
+| Stars | 公开 Release | 安装包累计下载 |
 | ---: | ---: | ---: |
 | 15 | 4 | 399 |
 
-The download figure is the sum of GitHub Release asset download counters across the four published versions; it is not a unique-user count. See the [release history](https://github.com/121103qwq/deepseek-desktop/releases).
+下载量是四个已发布版本的 GitHub Release 资产下载计数之和，不代表独立用户数。可查看[完整发布记录](https://github.com/121103qwq/deepseek-desktop/releases)。
 
-## Security and privacy
+## 安全与隐私
 
-The project does not ship shared API keys. Kilo, DeepSeek API, LLM7.io, and other configured model providers are network services with their own availability and data-handling policies. Do not submit personal, confidential, or sensitive information to a provider unless you understand and accept its terms.
+本项目不附带共享 API Key。Kilo、DeepSeek API、LLM7.io 以及其他配置的模型提供商都是联网服务，具有各自的可用性和数据处理政策。除非已经理解并接受相应条款，否则不要向模型提供商提交个人、机密或敏感内容。
 
-Please report vulnerabilities privately according to [SECURITY.md](SECURITY.md). Do not include credentials, private prompts, or personal data in public issues.
+发现漏洞时，请按照 [SECURITY.md](SECURITY.md) 私下报告。不要在公开 Issue 中提交凭据、私人提示词或个人数据。
 
 ## Roadmap
 
-- Harden the update path by verifying release metadata and downloaded installer digests before handoff.
-- Code-sign the installer and desktop executables when a suitable signing certificate and release process are available.
-- Add automated compatibility checks against supported upstream DeepSeek Harness releases.
-- Expand supply-chain checks with dependency review, retained license notices, and a generated software bill of materials.
+- 在交给更新程序前验证 Release 元数据和安装包摘要，加强自动更新链路。
+- 在具备合适证书和发布流程后，为安装器和桌面程序添加代码签名。
+- 添加针对受支持 DeepSeek Harness 上游版本的自动兼容性检查。
+- 通过依赖审查、保留许可证声明和生成软件物料清单，加强供应链检查。
 
-These are planned improvements, not claims about the current release. Work will be delivered through reviewable commits and releases.
+以上是计划中的改进，不代表当前版本已经实现。相关工作会通过可审查的提交和 Release 逐步交付。
 
-## Build and documentation
+## 构建与文档
 
-- [Windows installer build guide](distribution/windows/README.md)
-- [Chinese illustrated introduction](distribution/windows/INTRODUCTION.zh.md)
-- [Chinese Windows build guide](distribution/windows/README.zh.md)
+- [Windows 安装包构建说明（English）](distribution/windows/README.md)
+- [中文图文介绍](distribution/windows/INTRODUCTION.zh.md)
+- [Windows 安装包构建说明（中文）](distribution/windows/README.zh.md)
 
-The primary build entry point is:
+主要构建入口：
 
 ```powershell
 .\scripts\build-windows-installer.ps1
 ```
 
-## License and attribution
+## 许可证与署名
 
-The original DeepSeek Desktop wrapper and packaging code in this repository are available under the [MIT License](LICENSE).
+本仓库原创的 DeepSeek Desktop 桌面封装和打包代码采用 [MIT License](LICENSE)。
 
-DeepSeek Harness is developed by DeepSeek and distributed under its own [MIT License](https://github.com/deepseek-ai/deepseek-harness/blob/master/LICENSE). Bundled third-party runtimes, libraries, services, names, and logos remain governed by their respective licenses and terms. The DeepSeek name and logo are used only to describe compatibility and are not evidence of affiliation or endorsement.
+DeepSeek Harness 由 DeepSeek 开发，并按照其自身的 [MIT License](https://github.com/deepseek-ai/deepseek-harness/blob/master/LICENSE) 发布。安装包中的第三方 runtime、依赖、服务、名称和标志继续受各自许可证与条款约束。DeepSeek 名称和标志仅用于说明兼容关系，不代表官方隶属或背书。
 
