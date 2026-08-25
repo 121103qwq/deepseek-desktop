@@ -1,23 +1,74 @@
 # DeepSeek Desktop
 
-DeepSeek Harness 的 Windows x64 桌面安装包社区发行项目。
+[简体中文](README.zh-CN.md)
 
-> **非官方社区版：** 本项目不是 DeepSeek 官方产品，不代表、不隶属于 DeepSeek，也未获得官方背书。安装器会在开始安装前再次明确提示。
+A community-maintained Windows x64 desktop distribution of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
-![DeepSeek Desktop 中文界面](docs/images/deepseek-desktop-main.png)
+> **Unofficial community build:** DeepSeek Desktop is not an official DeepSeek product, is not affiliated with DeepSeek, and is not endorsed by DeepSeek. The installer repeats this notice before installation begins.
 
-安装后会在名为 `DeepSeek Desktop` 的内置 WebView 窗口中运行，不会打开外部浏览器。安装向导只在安装时选择一次 Kilo 匿名免费模型或 DeepSeek API，后续启动不会重复询问；默认的 Kilo Auto Free 不需要登录或 API Key，也不是本地模型。
+![DeepSeek Desktop Chinese interface](docs/images/deepseek-desktop-main.png)
 
-## 下载
+DeepSeek Desktop starts DeepSeek Harness locally and opens its interface in an embedded WebView2 window named `DeepSeek Desktop`, instead of launching an external browser. The installer asks once whether to start with anonymous Kilo models or the DeepSeek API; the choice can be changed later inside Harness.
 
-[GitHub Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.2) 提供一个 Windows x64 离线安装包：
+## Highlights
 
-| 安装包 | 说明 |
+- Native per-user Windows installer with a normal uninstall entry and no administrator requirement.
+- Embedded WebView2 desktop window, tray behavior, Start menu entry, and optional desktop shortcut.
+- Offline installation payload containing the published Harness dependency closure, Node.js, a pinned WebView2 runtime, and the optional vision sidecar. Model requests still require an internet connection.
+- Kilo anonymous free routing or a user-supplied DeepSeek API key. No API key is bundled with the installer.
+- Chinese defaults, explicit third-party data notices, and an update flow that asks before installing a new version.
+- User sessions and settings are preserved under `%LOCALAPPDATA%\DeepSeek Harness Data` when the application is uninstalled.
+
+## Download
+
+The current [GitHub Release](https://github.com/121103qwq/deepseek-desktop/releases/tag/deepseek-desktop-v0.2.2) provides one Windows x64 installer:
+
+| Installer | Description |
 | --- | --- |
-| `Deepseek-desktop-offline.exe` | 内置 Harness、Node.js、固定版 WebView2 runtime 和辅助识图插件；安装组件无需另行下载。 |
+| `Deepseek-desktop-offline.exe` | Includes Harness, Node.js, a pinned WebView2 runtime, and the optional vision sidecar, so installation components do not need to be downloaded during setup. |
 
-安装器支持自定义安装位置、可选桌面快捷方式、Kilo/DeepSeek API 路线、上游/社区更新通道和实验性辅助识图，并在 Windows“已安装的应用”中注册正常卸载入口。辅助识图使用 dsh-vision-sidecar 0.1.3，默认通过 LLM7.io 匿名 `default` 视觉路由处理图片，不使用本地模型或内置共享 Key。离线版只表示安装组件已内置，模型请求仍需联网；安装过程会一次性写入全部运行文件。首次点击关闭窗口时，可选择以后最小化到右下角通知区域或直接退出。
+Only download installers from this repository's Releases page. The current community build is not code-signed, so Windows may show an unknown-publisher or reputation warning. Do not disable Microsoft Defender.
 
-查看[中文图文介绍](distribution/windows/INTRODUCTION.zh.md)和[Windows 安装包构建说明](distribution/windows/README.zh.md)。
+## Early usage snapshot
 
-这是社区发行，不包含任何 API Key。安装开始前会再次显示非官方声明并要求确认。
+Public GitHub data as of **2026-08-25**:
+
+| Stars | Public releases | Cumulative installer downloads |
+| ---: | ---: | ---: |
+| 15 | 4 | 399 |
+
+The download figure is the sum of GitHub Release asset download counters across the four published versions; it is not a unique-user count. See the [release history](https://github.com/121103qwq/deepseek-desktop/releases).
+
+## Security and privacy
+
+The project does not ship shared API keys. Kilo, DeepSeek API, LLM7.io, and other configured model providers are network services with their own availability and data-handling policies. Do not submit personal, confidential, or sensitive information to a provider unless you understand and accept its terms.
+
+Please report vulnerabilities privately according to [SECURITY.md](SECURITY.md). Do not include credentials, private prompts, or personal data in public issues.
+
+## Roadmap
+
+- Harden the update path by verifying release metadata and downloaded installer digests before handoff.
+- Code-sign the installer and desktop executables when a suitable signing certificate and release process are available.
+- Add automated compatibility checks against supported upstream DeepSeek Harness releases.
+- Expand supply-chain checks with dependency review, retained license notices, and a generated software bill of materials.
+
+These are planned improvements, not claims about the current release. Work will be delivered through reviewable commits and releases.
+
+## Build and documentation
+
+- [Windows installer build guide](distribution/windows/README.md)
+- [Chinese illustrated introduction](distribution/windows/INTRODUCTION.zh.md)
+- [Chinese Windows build guide](distribution/windows/README.zh.md)
+
+The primary build entry point is:
+
+```powershell
+.\scripts\build-windows-installer.ps1
+```
+
+## License and attribution
+
+The original DeepSeek Desktop wrapper and packaging code in this repository are available under the [MIT License](LICENSE).
+
+DeepSeek Harness is developed by DeepSeek and distributed under its own [MIT License](https://github.com/deepseek-ai/deepseek-harness/blob/master/LICENSE). Bundled third-party runtimes, libraries, services, names, and logos remain governed by their respective licenses and terms. The DeepSeek name and logo are used only to describe compatibility and are not evidence of affiliation or endorsement.
+
